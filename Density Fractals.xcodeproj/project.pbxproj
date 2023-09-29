@@ -1,0 +1,594 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		DA4BE5492AC6664E00AE25A5 /* Density_FractalsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5482AC6664E00AE25A5 /* Density_FractalsApp.swift */; };
+		DA4BE54B2AC6664E00AE25A5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE54A2AC6664E00AE25A5 /* ContentView.swift */; };
+		DA4BE54D2AC6664F00AE25A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */; };
+		DA4BE5502AC6664F00AE25A5 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA4BE54F2AC6664F00AE25A5 /* Preview Assets.xcassets */; };
+		DA4BE55B2AC6665000AE25A5 /* Density_FractalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE55A2AC6665000AE25A5 /* Density_FractalsTests.swift */; };
+		DA4BE5652AC6665000AE25A5 /* Density_FractalsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5642AC6665000AE25A5 /* Density_FractalsUITests.swift */; };
+		DA4BE5672AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */; };
+		DA4BE5742AC6728100AE25A5 /* CountGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5732AC6728100AE25A5 /* CountGrid.swift */; };
+		DA4BE5762AC6772C00AE25A5 /* FractalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DA4BE5572AC6665000AE25A5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA4BE53D2AC6664E00AE25A5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA4BE5442AC6664E00AE25A5;
+			remoteInfo = "Density Fractals";
+		};
+		DA4BE5612AC6665000AE25A5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA4BE53D2AC6664E00AE25A5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DA4BE5442AC6664E00AE25A5;
+			remoteInfo = "Density Fractals";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		DA4BE5452AC6664E00AE25A5 /* Density Fractals.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Density Fractals.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA4BE5482AC6664E00AE25A5 /* Density_FractalsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsApp.swift; sourceTree = "<group>"; };
+		DA4BE54A2AC6664E00AE25A5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DA4BE54F2AC6664F00AE25A5 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		DA4BE5512AC6664F00AE25A5 /* Density_Fractals.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Density_Fractals.entitlements; sourceTree = "<group>"; };
+		DA4BE5562AC6665000AE25A5 /* Density FractalsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Density FractalsTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA4BE55A2AC6665000AE25A5 /* Density_FractalsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsTests.swift; sourceTree = "<group>"; };
+		DA4BE5602AC6665000AE25A5 /* Density FractalsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Density FractalsUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA4BE5642AC6665000AE25A5 /* Density_FractalsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsUITests.swift; sourceTree = "<group>"; };
+		DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		DA4BE5732AC6728100AE25A5 /* CountGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountGrid.swift; sourceTree = "<group>"; };
+		DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FractalRenderer.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DA4BE5422AC6664E00AE25A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA4BE5532AC6665000AE25A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA4BE55D2AC6665000AE25A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DA4BE53C2AC6664E00AE25A5 = {
+			isa = PBXGroup;
+			children = (
+				DA4BE5472AC6664E00AE25A5 /* Density Fractals */,
+				DA4BE5592AC6665000AE25A5 /* Density FractalsTests */,
+				DA4BE5632AC6665000AE25A5 /* Density FractalsUITests */,
+				DA4BE5462AC6664E00AE25A5 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DA4BE5462AC6664E00AE25A5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DA4BE5452AC6664E00AE25A5 /* Density Fractals.app */,
+				DA4BE5562AC6665000AE25A5 /* Density FractalsTests.xctest */,
+				DA4BE5602AC6665000AE25A5 /* Density FractalsUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DA4BE5472AC6664E00AE25A5 /* Density Fractals */ = {
+			isa = PBXGroup;
+			children = (
+				DA4BE5482AC6664E00AE25A5 /* Density_FractalsApp.swift */,
+				DA4BE54A2AC6664E00AE25A5 /* ContentView.swift */,
+				DA4BE5732AC6728100AE25A5 /* CountGrid.swift */,
+				DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */,
+				DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */,
+				DA4BE5512AC6664F00AE25A5 /* Density_Fractals.entitlements */,
+				DA4BE54E2AC6664F00AE25A5 /* Preview Content */,
+			);
+			path = "Density Fractals";
+			sourceTree = "<group>";
+		};
+		DA4BE54E2AC6664F00AE25A5 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				DA4BE54F2AC6664F00AE25A5 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		DA4BE5592AC6665000AE25A5 /* Density FractalsTests */ = {
+			isa = PBXGroup;
+			children = (
+				DA4BE55A2AC6665000AE25A5 /* Density_FractalsTests.swift */,
+			);
+			path = "Density FractalsTests";
+			sourceTree = "<group>";
+		};
+		DA4BE5632AC6665000AE25A5 /* Density FractalsUITests */ = {
+			isa = PBXGroup;
+			children = (
+				DA4BE5642AC6665000AE25A5 /* Density_FractalsUITests.swift */,
+				DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */,
+			);
+			path = "Density FractalsUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DA4BE5442AC6664E00AE25A5 /* Density Fractals */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA4BE56A2AC6665000AE25A5 /* Build configuration list for PBXNativeTarget "Density Fractals" */;
+			buildPhases = (
+				DA4BE5412AC6664E00AE25A5 /* Sources */,
+				DA4BE5422AC6664E00AE25A5 /* Frameworks */,
+				DA4BE5432AC6664E00AE25A5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Density Fractals";
+			productName = "Density Fractals";
+			productReference = DA4BE5452AC6664E00AE25A5 /* Density Fractals.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DA4BE5552AC6665000AE25A5 /* Density FractalsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA4BE56D2AC6665000AE25A5 /* Build configuration list for PBXNativeTarget "Density FractalsTests" */;
+			buildPhases = (
+				DA4BE5522AC6665000AE25A5 /* Sources */,
+				DA4BE5532AC6665000AE25A5 /* Frameworks */,
+				DA4BE5542AC6665000AE25A5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DA4BE5582AC6665000AE25A5 /* PBXTargetDependency */,
+			);
+			name = "Density FractalsTests";
+			productName = "Density FractalsTests";
+			productReference = DA4BE5562AC6665000AE25A5 /* Density FractalsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DA4BE55F2AC6665000AE25A5 /* Density FractalsUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA4BE5702AC6665000AE25A5 /* Build configuration list for PBXNativeTarget "Density FractalsUITests" */;
+			buildPhases = (
+				DA4BE55C2AC6665000AE25A5 /* Sources */,
+				DA4BE55D2AC6665000AE25A5 /* Frameworks */,
+				DA4BE55E2AC6665000AE25A5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DA4BE5622AC6665000AE25A5 /* PBXTargetDependency */,
+			);
+			name = "Density FractalsUITests";
+			productName = "Density FractalsUITests";
+			productReference = DA4BE5602AC6665000AE25A5 /* Density FractalsUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DA4BE53D2AC6664E00AE25A5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					DA4BE5442AC6664E00AE25A5 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+					DA4BE5552AC6665000AE25A5 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = DA4BE5442AC6664E00AE25A5;
+					};
+					DA4BE55F2AC6665000AE25A5 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = DA4BE5442AC6664E00AE25A5;
+					};
+				};
+			};
+			buildConfigurationList = DA4BE5402AC6664E00AE25A5 /* Build configuration list for PBXProject "Density Fractals" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = DA4BE53C2AC6664E00AE25A5;
+			productRefGroup = DA4BE5462AC6664E00AE25A5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DA4BE5442AC6664E00AE25A5 /* Density Fractals */,
+				DA4BE5552AC6665000AE25A5 /* Density FractalsTests */,
+				DA4BE55F2AC6665000AE25A5 /* Density FractalsUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DA4BE5432AC6664E00AE25A5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA4BE5502AC6664F00AE25A5 /* Preview Assets.xcassets in Resources */,
+				DA4BE54D2AC6664F00AE25A5 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA4BE5542AC6665000AE25A5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA4BE55E2AC6665000AE25A5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DA4BE5412AC6664E00AE25A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA4BE5762AC6772C00AE25A5 /* FractalRenderer.swift in Sources */,
+				DA4BE54B2AC6664E00AE25A5 /* ContentView.swift in Sources */,
+				DA4BE5742AC6728100AE25A5 /* CountGrid.swift in Sources */,
+				DA4BE5492AC6664E00AE25A5 /* Density_FractalsApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA4BE5522AC6665000AE25A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA4BE55B2AC6665000AE25A5 /* Density_FractalsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA4BE55C2AC6665000AE25A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA4BE5652AC6665000AE25A5 /* Density_FractalsUITests.swift in Sources */,
+				DA4BE5672AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DA4BE5582AC6665000AE25A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA4BE5442AC6664E00AE25A5 /* Density Fractals */;
+			targetProxy = DA4BE5572AC6665000AE25A5 /* PBXContainerItemProxy */;
+		};
+		DA4BE5622AC6665000AE25A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DA4BE5442AC6664E00AE25A5 /* Density Fractals */;
+			targetProxy = DA4BE5612AC6665000AE25A5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		DA4BE5682AC6665000AE25A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		DA4BE5692AC6665000AE25A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		DA4BE56B2AC6665000AE25A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Density Fractals/Density_Fractals.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Density Fractals/Preview Content\"";
+				DEVELOPMENT_TEAM = 5YQFPR9H45;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-Fractals";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DA4BE56C2AC6665000AE25A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Density Fractals/Density_Fractals.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Density Fractals/Preview Content\"";
+				DEVELOPMENT_TEAM = 5YQFPR9H45;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-Fractals";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DA4BE56E2AC6665000AE25A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5YQFPR9H45;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-FractalsTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Density Fractals.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Density Fractals";
+			};
+			name = Debug;
+		};
+		DA4BE56F2AC6665000AE25A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5YQFPR9H45;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-FractalsTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Density Fractals.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Density Fractals";
+			};
+			name = Release;
+		};
+		DA4BE5712AC6665000AE25A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5YQFPR9H45;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-FractalsUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "Density Fractals";
+			};
+			name = Debug;
+		};
+		DA4BE5722AC6665000AE25A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5YQFPR9H45;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-FractalsUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "Density Fractals";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DA4BE5402AC6664E00AE25A5 /* Build configuration list for PBXProject "Density Fractals" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA4BE5682AC6665000AE25A5 /* Debug */,
+				DA4BE5692AC6665000AE25A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DA4BE56A2AC6665000AE25A5 /* Build configuration list for PBXNativeTarget "Density Fractals" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA4BE56B2AC6665000AE25A5 /* Debug */,
+				DA4BE56C2AC6665000AE25A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DA4BE56D2AC6665000AE25A5 /* Build configuration list for PBXNativeTarget "Density FractalsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA4BE56E2AC6665000AE25A5 /* Debug */,
+				DA4BE56F2AC6665000AE25A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DA4BE5702AC6665000AE25A5 /* Build configuration list for PBXNativeTarget "Density FractalsUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA4BE5712AC6665000AE25A5 /* Debug */,
+				DA4BE5722AC6665000AE25A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DA4BE53D2AC6664E00AE25A5 /* Project object */;
+}
