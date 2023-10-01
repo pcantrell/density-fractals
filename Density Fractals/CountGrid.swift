@@ -7,10 +7,17 @@
 
 import CoreGraphics
 
-struct CountGrid<CountType: BinaryInteger> {
+actor CountGrid<CountType: BinaryInteger> {
     let width, height: Int
     private var buffer: [CountType]
     private(set) var maxCount: CountType = 0
+
+private var pointCount = 0
+private var timer = ContinuousClock.now
+
+    init(size: Int) {
+        self.init(width: size, height: size)
+    }
 
     init(width: Int, height: Int) {
         self.width = width
@@ -19,7 +26,7 @@ struct CountGrid<CountType: BinaryInteger> {
         buffer = .init(repeating: 0, count: width * height)
     }
 
-    mutating func touch(_ x: Int, _ y: Int) {
+    func touch(_ x: Int, _ y: Int) {
         guard isInBounds(x, y) else {
             return
         }
@@ -27,6 +34,20 @@ struct CountGrid<CountType: BinaryInteger> {
         buffer[index] += 1
         maxCount = max(maxCount, buffer[index])
     }
+
+    func touchAll(_ points: [(x: Int, y: Int)]) {
+//print("Touching points")
+//let touchTimer = ContinuousClock.now
+        for point in points {
+            touch(point.x, point.y)
+        }
+        pointCount += points.count
+//print("Touched \(points.count) points in \(ContinuousClock.now - touchTimer)")
+    }
+
+func addCount(_ count: Int) {
+pointCount += count
+}
 
     subscript(_ x: Int, _ y: Int) -> CountType {
         precondition(
@@ -43,36 +64,34 @@ struct CountGrid<CountType: BinaryInteger> {
         return x + y * width
     }
 
-    mutating func merge(_ other: CountGrid) {
-        guard self.width == other.width && self.height == other.height else {
-            fatalError("Cannot merge CountGrids with different sizes")
-        }
-        for i in buffer.indices {
-            buffer[i] += other.buffer[i]
-        }
-        maxCount = buffer.max() ?? 0
-    }
-
     func renderImage() -> CGImage {
-        // on-demand provider: https://stackoverflow.com/a/2261343/239816
         print("Rendering image...")
+        print(Double(pointCount) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
+        defer {
+            pointCount = 0
+            timer = ContinuousClock.now
+            print("Done rendering.")
+        }
+
+        // on-demand provider: https://stackoverflow.com/a/2261343/239816
         let numComponents = 3
         let numBytes = height * width * numComponents
         var pixelData = [UInt8](repeating: 0, count: numBytes)
 
-        print("Filling image buffer...")
+//        print("Filling image buffer...")
+print("image quality: \(maxCount)")
         let maxCountD = Double(maxCount)
         if maxCountD > 0 {
             for i in pixelData.indices {
-                pixelData[i] = UInt8(Double(buffer[i / 3]) / maxCountD * 255)
+                pixelData[i] = UInt8(pow(Double(buffer[i / 3]) / maxCountD, 0.6) * 255)
             }
         }
-        print("Done filling image buffer.")
+//        print("Done filling image buffer.")
 
         let colorspace = CGColorSpaceCreateDeviceRGB()
         let rgbData = CFDataCreate(nil, pixelData, numBytes)!
         let provider = CGDataProvider(data: rgbData)!
-        print("Creating CGImage...")
+//        print("Creating CGImage...")
         return CGImage(
             width: width,
             height: height,

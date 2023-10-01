@@ -12,7 +12,7 @@ struct ContentView: View {
     @State var fractalImage: CGImage?
     @State var mult = 1
 
-    let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack {
@@ -27,17 +27,17 @@ struct ContentView: View {
             }
 
             for fractal in FractalRenderer.pauls {
-                Task.detached { await fractal.orbit() }
+                Task.detached(priority: .medium) { await fractal.orbit() }
             }
 
             Task {
-                var result = await FractalRenderer.pauls.first?.grid
+//                var result = await FractalRenderer.pauls.first?.grid
+//
+//                for renderer in FractalRenderer.pauls.dropFirst() {
+//                    result!.merge(await renderer.grid)
+//                }
 
-                for renderer in FractalRenderer.pauls.dropFirst() {
-                    result!.merge(await renderer.grid)
-                }
-
-                fractalImage = result?.renderImage()
+                fractalImage = await FractalRenderer.grid.renderImage()
                 print("Updated image at \(time)")
             }
         }

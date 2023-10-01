@@ -7,23 +7,27 @@
 
 import Foundation
 
+private let pointBatchSize = 10000000 //16000000
+
+typealias Count = UInt32
+
 actor FractalRenderer {
+    static let grid = CountGrid<Count>(size: 2048)
     static let pauls = (1...8).map { _ in
-        FractalRenderer(size: 2048, rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823)
+        FractalRenderer(destination: grid, rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823)
     }
 
     let rotation: Double
     let thetaOffset: Double
 
-    private(set) var grid: CountGrid<UInt64>
+    let destination: CountGrid<Count>
 
     private var running = false
 
-    init(size: Int, rotation: Double, thetaOffset: Double) {
+    init(destination: CountGrid<Count>, rotation: Double, thetaOffset: Double) {
+        self.destination = destination
         self.rotation = rotation
         self.thetaOffset = thetaOffset
-
-        grid = CountGrid(width: size, height: size)
     }
 
     func orbit() async {
@@ -33,47 +37,64 @@ actor FractalRenderer {
         var x: Double = 0.5
         var y: Double = 0.0
 
-        let sizeD = Double(grid.width)
+        let size = max(destination.width, destination.height)
+        let sizeD = Double(size)
         let cosRot = cos(rotation),
             sinRot = sin(rotation)
 
-        var rand = SystemRandomNumberGenerator()
-
-        var count = 0
-        var timer = ContinuousClock.now
-
         while running {
-            var randBits = rand.next()
-            for _ in 0..<64 {
-                if (randBits & 1) == 0 {
-                    (x, y) = (
-                        x * cosRot + y * sinRot,
-                        y * cosRot - x * sinRot
-                    )
-                } else {
-                    let r = x * 0.5 + 0.5
-                    let theta = y * .pi + thetaOffset
-                    x = r * cos(theta)
-                    y = r * sin(theta)
+            var rand = SplitMix64()
+
+//            let timer = ContinuousClock.now
+
+            var points: [(Int, Int)] = []
+            points.reserveCapacity(pointBatchSize)
+
+            for _ in 0 ..< pointBatchSize / 64 {
+                var randBits = rand.next()
+                for _ in 0..<64 {
+                    if (randBits & 1) == 0 {
+                        (x, y) = (
+                            x * cosRot + y * sinRot,
+                            y * cosRot - x * sinRot
+                        )
+                    } else {
+                        let r = x * 0.5 + 0.5
+                        let theta = y * .pi + thetaOffset
+                        x = r * cos(theta)
+                        y = r * sin(theta)
+                    }
+
+                    points.append((
+                        Int((x / 2 + 0.5) * sizeD),
+                        Int((y / 2 + 0.5) * sizeD)
+                    ))
+
+                    randBits >>= 1
                 }
 
-                grid.touch(
-                    Int((x / 2 + 0.5) * sizeD),
-                    Int((y / 2 + 0.5) * sizeD)
-                )
-
-                randBits >>= 1
-                count += 1
+//                if points.count >= pointBatchSize {
+//                    points.removeAll(keepingCapacity: true)
+//                }
             }
 
-            if count >= 10000000 {
-                print(Double(count) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
+//print("will touch \(points.count)")
 
-                await Task.yield()
+            await destination.touchAll(points)
 
-                count = 0
-                timer = ContinuousClock.now
-            }
+//            await destination.addCount(points.count)
+
+//print("did touch all")
+//            await Task.yield()
+
+//            let pointsBaked = points
+//            Task.detached(priority: .medium) {
+//                await self.destination.touchAll(pointsBaked)
+//            }
+
+//            await Task.yield()
+
+//            print(Double(pointBatchSize) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
         }
     }
 
@@ -88,3 +109,45 @@ extension Duration {
     }
 }
 
+
+// From https://github.com/apple/swift/blob/main/benchmark/utils/TestsUtils.swift#L242-L263
+//
+// This is a fixed-increment version of Java 8's SplittableRandom generator.
+// It is a very fast generator passing BigCrush, with 64 bits of state.
+// See http://dx.doi.org/10.1145/2714064.2660195 and
+// http://docs.oracle.com/javase/8/docs/api/java/util/SplittableRandom.html
+//
+// Derived from public domain C implementation by Sebastiano Vigna
+// See http://xoshiro.di.unimi.it/splitmix64.c
+//
+public struct SplitMix64: RandomNumberGenerator {
+    private var state: UInt64
+
+    public init() {
+        self.init(seed: .random(in: .fullRange))
+    }
+
+    public init(seed: UInt64) {
+        self.state = seed
+    }
+
+    public mutating func next() -> UInt64 {
+        self.state &+= 0x9e3779b97f4a7c15
+        var z: UInt64 = self.state
+        z = (z ^ (z &>> 30)) &* 0xbf58476d1ce4e5b9
+        z = (z ^ (z &>> 27)) &* 0x94d049bb133111eb
+        return z ^ (z &>> 31)
+    }
+}
+
+extension FixedWidthInteger {
+    static var fullRange: ClosedRange<Self> {
+        (.min)...(.max)
+    }
+}
+
+extension ClosedRange where Bound: FixedWidthInteger {
+    static var fullRange: Self {
+        Bound.fullRange
+    }
+}
