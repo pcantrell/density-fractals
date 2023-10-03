@@ -7,40 +7,41 @@
 
 import SwiftUI
 
+let metalGrid = MetalGrid()
+
 struct ContentView: View {
+
     var timerEnabled = true
     @State var fractalImage: CGImage?
-    @State var mult = 1
+    @State var updateFlag = false
 
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    let metalGrid = MetalGrid()
+    @State var pauls: [FractalRenderer] = []
+
+    let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack {
-            if let fractalImage = fractalImage {
-                Image(decorative: fractalImage, scale: 2)
-            }
+            let _ = updateFlag
+            MetalFractalView(metalGrid: metalGrid, updateFlag: $updateFlag)
+                .onReceive(timer) { time in
+                    if !timerEnabled {
+                        timer.upstream.connect().cancel()
+                    }
+
+                    if pauls.isEmpty {
+                        pauls = (1...8).map { _ in
+                            FractalRenderer(destination: metalGrid, rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823)
+                        }
+                    }
+                    for fractal in pauls {
+                        Task.detached(priority: .medium) { await fractal.orbit() }
+                    }
+
+                    updateFlag.toggle()
+                }
         }
         .padding()
-        .onReceive(timer) { time in
-            if !timerEnabled {
-                timer.upstream.connect().cancel()
-            }
-
-            for fractal in FractalRenderer.pauls {
-                Task.detached(priority: .medium) { await fractal.orbit() }
-            }
-
-            Task {
-//                var result = await FractalRenderer.pauls.first?.grid
-//
-//                for renderer in FractalRenderer.pauls.dropFirst() {
-//                    result!.merge(await renderer.grid)
-//                }
-
-                fractalImage = await FractalRenderer.grid.renderImage()
-                print("Updated image at \(time)")
-            }
-        }
     }
 }
 

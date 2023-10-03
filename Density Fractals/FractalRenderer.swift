@@ -7,24 +7,20 @@
 
 import Foundation
 
-private let pointBatchSize = 10000000 //16000000
-
 typealias Count = UInt32
 
+let pointBatchSize = 1000000 //16000000
+
 actor FractalRenderer {
-    static let grid = CountGrid<Count>(size: 2048)
-    static let pauls = (1...8).map { _ in
-        FractalRenderer(destination: grid, rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823)
-    }
 
     let rotation: Double
     let thetaOffset: Double
 
-    let destination: CountGrid<Count>
+    let destination: MetalGrid
 
     private var running = false
 
-    init(destination: CountGrid<Count>, rotation: Double, thetaOffset: Double) {
+    init(destination: MetalGrid, rotation: Double, thetaOffset: Double) {
         self.destination = destination
         self.rotation = rotation
         self.thetaOffset = thetaOffset
@@ -37,7 +33,7 @@ actor FractalRenderer {
         var x: Double = 0.5
         var y: Double = 0.0
 
-        let size = max(destination.width, destination.height)
+        let size = destination.size
         let sizeD = Double(size)
         let cosRot = cos(rotation),
             sinRot = sin(rotation)

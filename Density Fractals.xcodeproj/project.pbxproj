@@ -16,6 +16,8 @@
 		DA4BE5672AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */; };
 		DA4BE5742AC6728100AE25A5 /* CountGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5732AC6728100AE25A5 /* CountGrid.swift */; };
 		DA4BE5762AC6772C00AE25A5 /* FractalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */; };
+		DA4BE5AF2AC91F7F00AE25A5 /* MetalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5AE2AC91F7F00AE25A5 /* MetalGrid.swift */; };
+		DA4BE5B12AC9204600AE25A5 /* FractalShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +51,9 @@
 		DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		DA4BE5732AC6728100AE25A5 /* CountGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountGrid.swift; sourceTree = "<group>"; };
 		DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FractalRenderer.swift; sourceTree = "<group>"; };
+		DA4BE5AE2AC91F7F00AE25A5 /* MetalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalGrid.swift; sourceTree = "<group>"; };
+		DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = FractalShaders.metal; sourceTree = "<group>"; };
+		DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Density Fractals-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,9 +108,12 @@
 				DA4BE54A2AC6664E00AE25A5 /* ContentView.swift */,
 				DA4BE5732AC6728100AE25A5 /* CountGrid.swift */,
 				DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */,
+				DA4BE5AE2AC91F7F00AE25A5 /* MetalGrid.swift */,
+				DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */,
 				DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */,
 				DA4BE5512AC6664F00AE25A5 /* Density_Fractals.entitlements */,
 				DA4BE54E2AC6664F00AE25A5 /* Preview Content */,
+				DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */,
 			);
 			path = "Density Fractals";
 			sourceTree = "<group>";
@@ -203,6 +211,7 @@
 				TargetAttributes = {
 					DA4BE5442AC6664E00AE25A5 = {
 						CreatedOnToolsVersion = 15.0;
+						LastSwiftMigration = 1500;
 					};
 					DA4BE5552AC6665000AE25A5 = {
 						CreatedOnToolsVersion = 15.0;
@@ -266,7 +275,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA4BE5762AC6772C00AE25A5 /* FractalRenderer.swift in Sources */,
+				DA4BE5B12AC9204600AE25A5 /* FractalShaders.metal in Sources */,
 				DA4BE54B2AC6664E00AE25A5 /* ContentView.swift in Sources */,
+				DA4BE5AF2AC91F7F00AE25A5 /* MetalGrid.swift in Sources */,
 				DA4BE5742AC6728100AE25A5 /* CountGrid.swift in Sources */,
 				DA4BE5492AC6664E00AE25A5 /* Density_FractalsApp.swift in Sources */,
 			);
@@ -430,6 +441,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = "Density Fractals/Density_Fractals.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -448,6 +460,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-Fractals";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Density Fractals/Density Fractals-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -457,6 +471,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = "Density Fractals/Density_Fractals.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -475,6 +490,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "net.innig.Density-Fractals";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Density Fractals/Density Fractals-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
