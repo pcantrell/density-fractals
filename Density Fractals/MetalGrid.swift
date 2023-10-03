@@ -73,7 +73,8 @@ actor MetalGrid {
 
     private var j = 0
 
-    private let orbit: any MTLBuffer
+//    private let orbit: any MTLBuffer
+    private let gpu: any MTLDevice
     private let density: any MTLBuffer
     private let cmdQueue: any MTLCommandQueue
     private let addPointsPipelineState: any MTLComputePipelineState
@@ -86,7 +87,7 @@ private var timer = ContinuousClock.now
     @Published var updateCount = 0
 
     init() {
-        let gpu = MTLCreateSystemDefaultDevice()!
+        gpu = MTLCreateSystemDefaultDevice()!
         let gpuLibrary = gpu.makeDefaultLibrary()!
 
         addPointsPipelineState = try! gpu.makeComputePipelineState(function:
@@ -98,7 +99,7 @@ private var timer = ContinuousClock.now
         renderSquareDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormat.bgra8Unorm
         renderSquarePipelineState = try! gpu.makeRenderPipelineState(descriptor: renderSquareDescriptor)
 
-        orbit = gpu.makeBuffer(length: pointBatchSize * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
+//        orbit = gpu.makeBuffer(length: pointBatchSize * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
         density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
 
         cmdQueue = gpu.makeCommandQueue()!
@@ -121,16 +122,11 @@ private var timer = ContinuousClock.now
             options: .cpuCacheModeWriteCombined)!
     }
 
-    func touchAll(_ points: [(x: Int, y: Int)]) {
-        precondition(points.count <= pointBatchSize, "points.count \(points.count) != pointBatchSize \(pointBatchSize)")
+    func makeOrbitBuffer() -> any MTLBuffer {
+        return gpu.makeBuffer(length: pointBatchSize * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
+    }
 
-        orbit.contents().withMemoryRebound(to: PointIndex.self, capacity: pointBatchSize) { orbits in
-            for i in points.indices {
-                let point = points[i]
-                orbits[i] = point.x + point.y * size
-            }
-        }
-
+    func touchAll(orbit: any MTLBuffer, count: Int) {
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
         cmdEncoder.setComputePipelineState(addPointsPipelineState)
@@ -144,7 +140,7 @@ private var timer = ContinuousClock.now
         cmdEncoder.endEncoding()
         cmdBuffer.commit()
 
-        pointCount += points.count
+        pointCount += count
     }
 
     func draw(in drawable: CAMetalDrawable, descriptor: MTLRenderPassDescriptor) {

@@ -38,45 +38,47 @@ actor FractalRenderer {
         let cosRot = cos(rotation),
             sinRot = sin(rotation)
 
+        let orbitBuffer = await destination.makeOrbitBuffer()
+
         while running {
             var rand = SplitMix64()
 
 //            let timer = ContinuousClock.now
 
-            var points: [(Int, Int)] = []
-            points.reserveCapacity(pointBatchSize)
+            var index = 0
+            orbitBuffer.contents().withMemoryRebound(to: PointIndex.self, capacity: pointBatchSize) { points in
+                for _ in 0 ..< pointBatchSize / 64 {
+                    var randBits = rand.next()
+                    for _ in 0..<64 {
+                        if (randBits & 1) == 0 {
+                            (x, y) = (
+                                x * cosRot + y * sinRot,
+                                y * cosRot - x * sinRot
+                            )
+                        } else {
+                            let r = x * 0.5 + 0.5
+                            let theta = y * .pi + thetaOffset
+                            x = r * cos(theta)
+                            y = r * sin(theta)
+                        }
 
-            for _ in 0 ..< pointBatchSize / 64 {
-                var randBits = rand.next()
-                for _ in 0..<64 {
-                    if (randBits & 1) == 0 {
-                        (x, y) = (
-                            x * cosRot + y * sinRot,
-                            y * cosRot - x * sinRot
-                        )
-                    } else {
-                        let r = x * 0.5 + 0.5
-                        let theta = y * .pi + thetaOffset
-                        x = r * cos(theta)
-                        y = r * sin(theta)
+                        points[index] =
+                            Int((x / 2 + 0.5) * sizeD) +
+                            Int((y / 2 + 0.5) * sizeD) * size
+                        index += 1
+
+                        randBits >>= 1
                     }
 
-                    points.append((
-                        Int((x / 2 + 0.5) * sizeD),
-                        Int((y / 2 + 0.5) * sizeD)
-                    ))
-
-                    randBits >>= 1
+    //                if points.count >= pointBatchSize {
+    //                    points.removeAll(keepingCapacity: true)
+    //                }
                 }
-
-//                if points.count >= pointBatchSize {
-//                    points.removeAll(keepingCapacity: true)
-//                }
             }
 
 //print("will touch \(points.count)")
 
-            await destination.touchAll(points)
+            await destination.touchAll(orbit: orbitBuffer, count: index)
 
 //            await destination.addCount(points.count)
 
