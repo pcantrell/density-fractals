@@ -7,16 +7,19 @@
 
 import SwiftUI
 
-let metalGrid = MetalGrid()
+let metalGrid = MetalGrid(FractalParams(
+    rotation: 1.6620565029879701,
+    thetaOffset: 3.5144442745012823,
+    pointBatchSize: 10000,
+    gridSize: 2048,
+    randSeed: 0))  // set afresh for each render
+let gpuThreadCount = 10000
 
 struct ContentView: View {
 
     var timerEnabled = true
     @State var fractalImage: CGImage?
     @State var updateFlag = false
-
-    let metalGrid = MetalGrid()
-    @State var pauls: [FractalRenderer] = []
 
     let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
@@ -29,16 +32,9 @@ struct ContentView: View {
                         timer.upstream.connect().cancel()
                     }
 
-                    if pauls.isEmpty {
-                        pauls = (1...8).map { _ in
-                            FractalRenderer(destination: metalGrid, rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823)
-                        }
+                    Task {
+                        updateFlag.toggle()
                     }
-                    for fractal in pauls {
-                        Task.detached(priority: .medium) { await fractal.orbit() }
-                    }
-
-                    updateFlag.toggle()
                 }
         }
         .padding()

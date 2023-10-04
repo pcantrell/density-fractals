@@ -63,35 +63,31 @@ struct MetalFractalView: NSViewRepresentable {
     }
 }
 
-//private struct RenderVertex {
-//    var inPosition: SIMD2<Int>
-//    var outPosition: SIMD2<Float>
-//}
-
 actor MetalGrid {
-    let size = 2048
+    let params: FractalParams
 
-    private var j = 0
-
-//    private let orbit: any MTLBuffer
     private let gpu: any MTLDevice
     private let density: any MTLBuffer
     private let cmdQueue: any MTLCommandQueue
-    private let addPointsPipelineState: any MTLComputePipelineState
+    private let renderOrbitPipelineState: any MTLComputePipelineState
     private let renderSquarePipelineState: any MTLRenderPipelineState
-    private let squareVertexBuf, densitySizeBuf: any MTLBuffer
+    private let squareVertexBuf: any MTLBuffer
 
 private var pointCount = 0
 private var timer = ContinuousClock.now
 
     @Published var updateCount = 0
 
-    init() {
+    init(_ params: FractalParams) {
+        self.params = params
+
+        let size = Int(params.gridSize)
+
         gpu = MTLCreateSystemDefaultDevice()!
         let gpuLibrary = gpu.makeDefaultLibrary()!
 
-        addPointsPipelineState = try! gpu.makeComputePipelineState(function:
-            gpuLibrary.makeFunction(name: "addPoints")!)
+        renderOrbitPipelineState = try! gpu.makeComputePipelineState(function:
+            gpuLibrary.makeFunction(name: "renderOrbit")!)
 
         let renderSquareDescriptor = MTLRenderPipelineDescriptor()
         renderSquareDescriptor.vertexFunction = gpuLibrary.makeFunction(name: "densityVertex")!
@@ -99,7 +95,6 @@ private var timer = ContinuousClock.now
         renderSquareDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormat.bgra8Unorm
         renderSquarePipelineState = try! gpu.makeRenderPipelineState(descriptor: renderSquareDescriptor)
 
-//        orbit = gpu.makeBuffer(length: pointBatchSize * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
         density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
 
         cmdQueue = gpu.makeCommandQueue()!
@@ -115,32 +110,44 @@ private var timer = ContinuousClock.now
             length: squareVertices.count * MemoryLayout.stride(ofValue: squareVertices[0]),
             options: .cpuCacheModeWriteCombined)!
 
-        let sizeArray = [size, size]
-        densitySizeBuf = gpu.makeBuffer(
-            bytes: sizeArray,
-            length: MemoryLayout.size(ofValue: sizeArray),
-            options: .cpuCacheModeWriteCombined)!
+        Task.detached(priority: .medium) {
+            while true {
+                await metalGrid.renderOrbit()
+            }
+        }
     }
 
     func makeOrbitBuffer() -> any MTLBuffer {
-        return gpu.makeBuffer(length: pointBatchSize * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
+        return gpu.makeBuffer(length: Int(params.pointBatchSize) * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
     }
 
-    func touchAll(orbit: any MTLBuffer, count: Int) {
+    func renderOrbit() {
+        let timer = ContinuousClock.now
+        defer {
+            print("rendered \(params.pointBatchSize) points in \(ContinuousClock.now - timer)")
+        }
+
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
-        cmdEncoder.setComputePipelineState(addPointsPipelineState)
-        cmdEncoder.setBuffer(orbit, offset: 0, index: 0)
+        cmdEncoder.setComputePipelineState(renderOrbitPipelineState)
+
+        var params = self.params
+        params.randSeed = .random(in: .fullRange)
+        cmdEncoder.setBytes(&params, length: MemoryLayout.size(ofValue: params), index: 0)
+
         cmdEncoder.setBuffer(density, offset: 0, index: 1)
+
         cmdEncoder.dispatchThreads(
-            MTLSize(width: pointBatchSize, height: 1, depth: 1),
+            MTLSize(width: gpuThreadCount, height: 1, depth: 1),
             threadsPerThreadgroup: MTLSize(
-                width: min(pointBatchSize, addPointsPipelineState.maxTotalThreadsPerThreadgroup),
+                width: min(gpuThreadCount, renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
                 height: 1, depth: 1))
+
         cmdEncoder.endEncoding()
         cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
 
-        pointCount += count
+        pointCount += Int(params.pointBatchSize) * gpuThreadCount
     }
 
     func draw(in drawable: CAMetalDrawable, descriptor: MTLRenderPassDescriptor) {
@@ -148,7 +155,6 @@ private var timer = ContinuousClock.now
         defer {
             pointCount = 0
             timer = ContinuousClock.now
-            print("Done rendering.")
         }
 
         let unitInterval = 0.0...1.0
@@ -161,7 +167,7 @@ private var timer = ContinuousClock.now
         cmdEncoder.setRenderPipelineState(renderSquarePipelineState)
 
         cmdEncoder.setVertexBuffer(squareVertexBuf, offset: 0, index: 0)
-        var sizeBuf = size
+        var sizeBuf = params.gridSize
 
         cmdEncoder.setFragmentBuffer(density, offset: 0, index: 0)
         cmdEncoder.setFragmentBytes(&sizeBuf, length: MemoryLayout.size(ofValue: sizeBuf), index: 1)
@@ -171,5 +177,23 @@ private var timer = ContinuousClock.now
         cmdEncoder.endEncoding()
         cmdBuffer.present(drawable)
         cmdBuffer.commit()
+    }
+}
+
+extension Duration {
+    var milliseconds: Double {
+        self / .milliseconds(1)
+    }
+}
+
+extension FixedWidthInteger {
+    static var fullRange: ClosedRange<Self> {
+        (.min)...(.max)
+    }
+}
+
+extension ClosedRange where Bound: FixedWidthInteger {
+    static var fullRange: Self {
+        Bound.fullRange
     }
 }

@@ -7,3 +7,11 @@
 struct RenderVertex {
     vector_float2 position;
 };
+
+struct FractalParams {
+    float rotation;
+    float thetaOffset;
+    int pointBatchSize;
+    int gridSize;
+    unsigned long randSeed;
+};

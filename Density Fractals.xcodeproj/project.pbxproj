@@ -14,8 +14,6 @@
 		DA4BE55B2AC6665000AE25A5 /* Density_FractalsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE55A2AC6665000AE25A5 /* Density_FractalsTests.swift */; };
 		DA4BE5652AC6665000AE25A5 /* Density_FractalsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5642AC6665000AE25A5 /* Density_FractalsUITests.swift */; };
 		DA4BE5672AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */; };
-		DA4BE5742AC6728100AE25A5 /* CountGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5732AC6728100AE25A5 /* CountGrid.swift */; };
-		DA4BE5762AC6772C00AE25A5 /* FractalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */; };
 		DA4BE5AF2AC91F7F00AE25A5 /* MetalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5AE2AC91F7F00AE25A5 /* MetalGrid.swift */; };
 		DA4BE5B12AC9204600AE25A5 /* FractalShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */; };
 /* End PBXBuildFile section */
@@ -49,8 +47,6 @@
 		DA4BE5602AC6665000AE25A5 /* Density FractalsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Density FractalsUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA4BE5642AC6665000AE25A5 /* Density_FractalsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsUITests.swift; sourceTree = "<group>"; };
 		DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsUITestsLaunchTests.swift; sourceTree = "<group>"; };
-		DA4BE5732AC6728100AE25A5 /* CountGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountGrid.swift; sourceTree = "<group>"; };
-		DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FractalRenderer.swift; sourceTree = "<group>"; };
 		DA4BE5AE2AC91F7F00AE25A5 /* MetalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalGrid.swift; sourceTree = "<group>"; };
 		DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = FractalShaders.metal; sourceTree = "<group>"; };
 		DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Density Fractals-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -106,8 +102,6 @@
 			children = (
 				DA4BE5482AC6664E00AE25A5 /* Density_FractalsApp.swift */,
 				DA4BE54A2AC6664E00AE25A5 /* ContentView.swift */,
-				DA4BE5732AC6728100AE25A5 /* CountGrid.swift */,
-				DA4BE5752AC6772C00AE25A5 /* FractalRenderer.swift */,
 				DA4BE5AE2AC91F7F00AE25A5 /* MetalGrid.swift */,
 				DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */,
 				DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */,
@@ -274,11 +268,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DA4BE5762AC6772C00AE25A5 /* FractalRenderer.swift in Sources */,
 				DA4BE5B12AC9204600AE25A5 /* FractalShaders.metal in Sources */,
 				DA4BE54B2AC6664E00AE25A5 /* ContentView.swift in Sources */,
 				DA4BE5AF2AC91F7F00AE25A5 /* MetalGrid.swift in Sources */,
-				DA4BE5742AC6728100AE25A5 /* CountGrid.swift in Sources */,
 				DA4BE5492AC6664E00AE25A5 /* Density_FractalsApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
