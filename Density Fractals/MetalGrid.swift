@@ -36,6 +36,10 @@ struct MetalFractalView: NSViewRepresentable {
         Coordinator(metalGrid: metalGrid)
     }
 
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: MTKView, context: Context) -> CGSize? {
+        CGSize(width: metalGrid.size / 2, height: metalGrid.size / 2)
+    }
+
     class Coordinator: NSObject, MTKViewDelegate {
         let metalGrid: MetalGrid
 
@@ -65,6 +69,8 @@ struct MetalFractalView: NSViewRepresentable {
 }
 
 actor MetalGrid {
+    let size: Int
+
     var params: FractalParams
 
     var colorScheme: FractalColorScheme
@@ -93,6 +99,8 @@ private var timer = ContinuousClock.now
 
     init(_ params: FractalParams) {
         self.params = params
+
+        size = Int(params.gridSize)
 
         //CMConvertLuvToXYZ()
         self.colorScheme = FractalColorScheme(
@@ -245,9 +253,8 @@ density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride
         let Δt = 1.0
         colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
         colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
-        colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: 0.9, b: 1)
+        colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: 1, b: 1)
 
-print("-------------------> params: ", params)
         let maxDensity = computeMaxDensity()
         let totalDensity = computeTotalDensity()
 //        print(

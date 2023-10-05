@@ -24,8 +24,8 @@ struct ContentView: View {
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack {
-            let _ = updateFlag
+        let _ = updateFlag
+        ScrollView([.horizontal, .vertical]) {
             MetalFractalView(metalGrid: metalGrid, updateFlag: $updateFlag)
                 .onReceive(timer) { time in
                     if !timerEnabled {
@@ -37,7 +37,6 @@ struct ContentView: View {
                     }
                 }
         }
-        .padding()
     }
 }
 
