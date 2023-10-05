@@ -21,7 +21,7 @@ struct ContentView: View {
     @State var fractalImage: CGImage?
     @State var updateFlag = false
 
-    let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack {

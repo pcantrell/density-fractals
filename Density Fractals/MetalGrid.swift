@@ -24,6 +24,7 @@ struct MetalFractalView: NSViewRepresentable {
         view.device = MTLCreateSystemDefaultDevice()
         view.delegate = context.coordinator
         view.enableSetNeedsDisplay = true
+        view.colorspace = .init(name: CGColorSpace.displayP3)
         return view
     }
 
@@ -64,7 +65,17 @@ struct MetalFractalView: NSViewRepresentable {
 }
 
 actor MetalGrid {
-    let params: FractalParams
+    var params: FractalParams
+
+    var colorScheme: FractalColorScheme
+
+    private var
+        coolHue = Wave(Δphase:  pow(0.0030, 0.99)),  // exponents makes speeds all mutually irrational
+        coolSat = Wave(Δphase:  pow(0.0070, 0.99), phase: -0.25),
+        medR    = Wave(Δphase:  pow(0.0014, 0.99), range: 0...0.5),
+        medG    = Wave(Δphase: -pow(0.0025, 0.99), range: 0...0.5),
+        medB    = Wave(Δphase:  pow(0.0036, 0.99), range: 0...0.5),
+        hotHue  = Wave(Δphase: -pow(0.0053, 0.99))
 
     private let gpu: any MTLDevice
     private var density: any MTLBuffer
@@ -82,6 +93,12 @@ private var timer = ContinuousClock.now
 
     init(_ params: FractalParams) {
         self.params = params
+
+        //CMConvertLuvToXYZ()
+        self.colorScheme = FractalColorScheme(
+            cool:   simd_float3.zero,
+            medium: simd_float3.zero,
+            hot:    simd_float3.zero)
 
         let size = Int(params.gridSize)
 
@@ -219,12 +236,26 @@ let goldenRatio: Float = (1 + sqrt(5)) / 2
         defer {
 //            pointCount = 0
 //            timer = ContinuousClock.now
+params.thetaOffset += 0.1
+params.rotation += 0.1 * goldenRatio
+let size = Int(params.gridSize)
+density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
         }
 
+        let Δt = 1.0
+        colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
+        colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
+        colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: 0.9, b: 1)
+
+print("-------------------> params: ", params)
         let maxDensity = computeMaxDensity()
-        print("  max density: \(maxDensity)")
-        print("total density: \(computeTotalDensity())")
-        print("   pointCount: \(pointCount)")
+        let totalDensity = computeTotalDensity()
+//        print(
+//            Double(maxDensity) / Double(totalDensity) * 1_000_000,
+//            Double(maxDensity) / Double(totalDensity) * pow(Double(params.gridSize), 2))
+//        print("  max density: \(maxDensity)")
+//        print("total density: \(computeTotalDensity())")
+//        print("   pointCount: \(pointCount)")
 
         let unitInterval = 0.0...1.0
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(.random(in: unitInterval), .random(in: unitInterval), .random(in: unitInterval), 1)
@@ -240,8 +271,14 @@ let goldenRatio: Float = (1 + sqrt(5)) / 2
 
         cmdEncoder.setFragmentBuffer(density, offset: 0, index: 0)
         cmdEncoder.setFragmentBytes(&sizeBuf, length: MemoryLayout.size(ofValue: sizeBuf), index: 1)
+
+        let gridPixelCount = pow(Float(params.gridSize), 2)
         var maxDensityF = Float(maxDensity)
+        var totalDensityScaled = Float(totalDensity) / gridPixelCount * 42
         cmdEncoder.setFragmentBytes(&maxDensityF, length: MemoryLayout.size(ofValue: maxDensityF), index: 2)
+        cmdEncoder.setFragmentBytes(&totalDensityScaled, length: MemoryLayout.size(ofValue: totalDensityScaled), index: 3)
+
+        cmdEncoder.setFragmentBytes(&colorScheme, length: MemoryLayout.size(ofValue: colorScheme), index: 4)
 
         cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
 
@@ -268,3 +305,31 @@ extension ClosedRange where Bound: FixedWidthInteger {
         Bound.fullRange
     }
 }
+
+private func simdColor(h: CGFloat, s: CGFloat, b: CGFloat) -> simd_float3 {
+    let color = NSColor(hue: h, saturation: s, brightness: b, alpha: 1)
+    var r: CGFloat = 0,
+        g: CGFloat = 0,
+        b: CGFloat = 0
+    color.getRed(&r, green: &g, blue: &b, alpha: nil)
+    return simdColor(r: r, g: g, b: b)
+}
+
+private func simdColor(r: Double, g: Double, b: Double) -> simd_float3 {
+    return simd_float3(Float(r), Float(g), Float(b))
+}
+
+fileprivate struct Wave {
+    var Δphase: Double
+    var phase: Double = 0
+    var range: ClosedRange<Double> = 0...1
+
+    mutating func next(speed: Double = 1) -> Double {
+        defer {
+            phase = (phase + Δphase * speed).remainder(dividingBy: 1)
+        }
+        return (sin(phase * 2 * .pi) / 2 + 0.5)
+            * (range.upperBound - range.lowerBound) + range.lowerBound
+    }
+}
+

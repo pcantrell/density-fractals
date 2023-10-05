@@ -15,3 +15,8 @@ struct FractalParams {
     int gridSize;
     unsigned long randSeed;
 };
+
+struct FractalColorScheme {
+    simd_float3 cool, medium, hot;
+};
+
