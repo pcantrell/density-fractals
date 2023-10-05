@@ -58,6 +58,55 @@ kernel void renderOrbit(
     }
 }
 
+struct ChunkRange {
+    int start, end;
+};
+
+ChunkRange computeChunkRange(
+    constant FractalParams* params,
+    int chunkSize,
+    uint chunkIndex
+) {
+    int start = chunkIndex * chunkSize;
+    int end = min(start + chunkSize, params->gridSize * params->gridSize);
+    return { start, end };
+}
+
+kernel void maxDensity(
+    constant FractalParams* params,
+    device uint* density,
+    device uint* result,
+    constant int& chunkSize,
+    uint chunkIndex [[thread_position_in_grid]]
+) {
+    ChunkRange range = computeChunkRange(params, chunkSize, chunkIndex);
+
+    uint max = 0;
+    for (int n = range.start; n < range.end; n++) {
+        if (density[n] > max) {
+            max = density[n];
+        }
+    }
+
+    result[chunkIndex] = max;
+}
+
+kernel void totalDensity(
+    constant FractalParams* params,
+    device uint* density,
+    device uint64_t* result,
+    constant int& chunkSize,
+    uint chunkIndex [[thread_position_in_grid]]
+) {
+    ChunkRange range = computeChunkRange(params, chunkSize, chunkIndex);
+
+    uint64_t total = 0;
+    for (int n = range.start; n < range.end; n++) {
+        total += density[n];
+    }
+
+    result[chunkIndex] = total;
+}
 
 struct RasterizerData {
     float4 position [[position]];
@@ -83,9 +132,14 @@ vertex RasterizerData densityVertex(
 fragment float4 densityFragment(
     RasterizerData in [[stage_in]],
     device uint* density,
-    constant int *densitySize
+    constant int& densitySize,
+    constant float& maxDensity
 ) {
-    int2 densityPosInt = int2(rint(in.densityPosition * vector_float2(*densitySize - 1)));
-    uint densityValue = density[densityPosInt.x + densityPosInt.y * *densitySize];
-    return float4(pow(densityValue, 0.3) / 10.0, pow(densityValue, 0.5) / 100.0, pow(densityValue, 0.7) / 1000.0, 1);
+    int2 densityPosInt = int2(rint(in.densityPosition * vector_float2(densitySize - 1)));
+    uint densityValue = density[densityPosInt.x + densityPosInt.y * densitySize];
+    return float4(
+        pow(densityValue / maxDensity, 0.3),
+        pow(densityValue / maxDensity, 0.5) * 1.5 - 0.5,
+        pow(densityValue / maxDensity, 0.7) * 2 - 1,
+        1);
 }

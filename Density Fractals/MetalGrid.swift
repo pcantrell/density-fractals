@@ -67,9 +67,11 @@ actor MetalGrid {
     let params: FractalParams
 
     private let gpu: any MTLDevice
-    private let density: any MTLBuffer
+    private var density: any MTLBuffer
     private let cmdQueue: any MTLCommandQueue
     private let renderOrbitPipelineState: any MTLComputePipelineState
+    private let maxDensityPipelineState: any MTLComputePipelineState
+    private let totalDensityPipelineState: any MTLComputePipelineState
     private let renderSquarePipelineState: any MTLRenderPipelineState
     private let squareVertexBuf: any MTLBuffer
 
@@ -88,6 +90,12 @@ private var timer = ContinuousClock.now
 
         renderOrbitPipelineState = try! gpu.makeComputePipelineState(function:
             gpuLibrary.makeFunction(name: "renderOrbit")!)
+
+        maxDensityPipelineState = try! gpu.makeComputePipelineState(function:
+            gpuLibrary.makeFunction(name: "maxDensity")!)
+
+        totalDensityPipelineState = try! gpu.makeComputePipelineState(function:
+            gpuLibrary.makeFunction(name: "totalDensity")!)
 
         let renderSquareDescriptor = MTLRenderPipelineDescriptor()
         renderSquareDescriptor.vertexFunction = gpuLibrary.makeFunction(name: "densityVertex")!
@@ -122,10 +130,10 @@ private var timer = ContinuousClock.now
     }
 
     func renderOrbit() {
-        let timer = ContinuousClock.now
-        defer {
-            print("rendered \(params.pointBatchSize) points in \(ContinuousClock.now - timer)")
-        }
+//        let timer = ContinuousClock.now
+//        defer {
+//            print("rendered \(params.pointBatchSize) points in \(ContinuousClock.now - timer)")
+//        }
 
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
@@ -150,12 +158,73 @@ private var timer = ContinuousClock.now
         pointCount += Int(params.pointBatchSize) * gpuThreadCount
     }
 
+    func computeMaxDensity() -> DensityCount {
+        computeChunked(pipelineState: maxDensityPipelineState)
+            .max() ?? 0
+    }
+
+    func computeTotalDensity() -> UInt64 {
+        computeChunked(pipelineState: totalDensityPipelineState)
+            .reduce(0, +)
+    }
+
+    private func computeChunked<Result>(
+        pipelineState: any MTLComputePipelineState
+    ) -> [Result] {
+//        print("Computing...")
+//        let timer = ContinuousClock.now
+//        defer {
+//            print("Computed in \(ContinuousClock.now - timer)")
+//        }
+
+        let cmdBuffer = cmdQueue.makeCommandBuffer()!
+        let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
+        cmdEncoder.setComputePipelineState(pipelineState)
+
+        var params = self.params
+        cmdEncoder.setBytes(&params, length: MemoryLayout.size(ofValue: params), index: 0)
+
+        cmdEncoder.setBuffer(density, offset: 0, index: 1)
+
+        let chunkCount = 1000
+        let resultBuf = gpu.makeBuffer(length: MemoryLayout<Result>.stride * chunkCount)!
+        cmdEncoder.setBuffer(resultBuf, offset: 0, index: 2)
+
+        var chunkSize = (Int(params.gridSize * params.gridSize) + chunkCount - 1) / chunkCount
+        cmdEncoder.setBytes(&chunkSize, length: MemoryLayout.size(ofValue: chunkSize), index: 3)
+
+        cmdEncoder.dispatchThreads(
+            MTLSize(width: chunkCount, height: 1, depth: 1),
+            threadsPerThreadgroup: MTLSize(
+                width: min(Int(ceil(sqrt(Float(chunkCount)))), renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
+                height: 1, depth: 1))
+
+        cmdEncoder.endEncoding()
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
+
+        var result: [Result] = []
+        resultBuf.contents().withMemoryRebound(to: Result.self, capacity: 1) { data in
+            for i in 0..<chunkCount {
+                result.append(data[i])
+            }
+        }
+        return result
+    }
+
+let goldenRatio: Float = (1 + sqrt(5)) / 2
+
     func draw(in drawable: CAMetalDrawable, descriptor: MTLRenderPassDescriptor) {
         print(Double(pointCount) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
         defer {
-            pointCount = 0
-            timer = ContinuousClock.now
+//            pointCount = 0
+//            timer = ContinuousClock.now
         }
+
+        let maxDensity = computeMaxDensity()
+        print("  max density: \(maxDensity)")
+        print("total density: \(computeTotalDensity())")
+        print("   pointCount: \(pointCount)")
 
         let unitInterval = 0.0...1.0
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(.random(in: unitInterval), .random(in: unitInterval), .random(in: unitInterval), 1)
@@ -171,6 +240,8 @@ private var timer = ContinuousClock.now
 
         cmdEncoder.setFragmentBuffer(density, offset: 0, index: 0)
         cmdEncoder.setFragmentBytes(&sizeBuf, length: MemoryLayout.size(ofValue: sizeBuf), index: 1)
+        var maxDensityF = Float(maxDensity)
+        cmdEncoder.setFragmentBytes(&maxDensityF, length: MemoryLayout.size(ofValue: maxDensityF), index: 2)
 
         cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
 
