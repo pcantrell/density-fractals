@@ -7,35 +7,27 @@
 
 import SwiftUI
 
-let metalGrid = MetalFractalRenderer(FractalParams(
-    rotation: 1.6620565029879701,
-    thetaOffset: 3.5144442745012823,
-    gridSize: 2048,
-    pointBatchSize: 10000,
-    gpuThreadCount: 10000,
-    randSeed: 0))  // set afresh for each render
-
 struct ContentView: View {
+    let renderer = MetalFractalRenderer(
+        size: 2048,
+        rotation: 1.6620565029879701,
+        thetaOffset: 3.5144442745012823)
 
     var timerEnabled = true
     @State var fractalImage: CGImage?
-    @State var updateFlag = false
 
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    init(timerEnabled: Bool = true) {
+        self.timerEnabled = timerEnabled
+
+        let renderer = renderer
+        Task.detached(priority: .medium) {
+            await renderer.renderAnimation(frameCount: 300, pointsPerFrame: 1_000_000, Δt: 1 / 20.0)
+        }
+    }
 
     var body: some View {
-        let _ = updateFlag
         ScrollView([.horizontal, .vertical]) {
-            MetalFractalView(metalGrid: metalGrid, updateFlag: $updateFlag)
-                .onReceive(timer) { time in
-                    if !timerEnabled {
-                        timer.upstream.connect().cancel()
-                    }
-
-                    Task {
-                        updateFlag.toggle()
-                    }
-                }
+            MetalFractalView(renderer: renderer)
         }
     }
 }

@@ -13,12 +13,10 @@ import SwiftUI
 typealias PointIndex = Int
 typealias DensityCount = UInt32
 
-private let logTiming = false
+private let logTiming = false, logStats = true
 
 struct MetalFractalView: NSViewRepresentable {
-    let metalGrid: MetalFractalRenderer
-
-    @Binding var updateFlag: Bool
+    let renderer: MetalFractalRenderer
 
     // From https://blog.canopas.com/how-to-get-started-with-metal-apis-with-uiview-and-swiftui-124643d8209e#67e6
     func makeNSView(context: Context) -> MTKView {
@@ -27,6 +25,13 @@ struct MetalFractalView: NSViewRepresentable {
         view.delegate = context.coordinator
         view.enableSetNeedsDisplay = true
         view.colorspace = .init(name: CGColorSpace.displayP3)
+
+        Task {
+            await renderer.onFrameRendered {
+                view.needsDisplay = true
+            }
+        }
+
         return view
     }
 
@@ -35,11 +40,11 @@ struct MetalFractalView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(metalGrid: metalGrid)
+        Coordinator(metalGrid: renderer)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: MTKView, context: Context) -> CGSize? {
-        CGSize(width: metalGrid.size / 2, height: metalGrid.size / 2)
+        CGSize(width: renderer.size / 2, height: renderer.size / 2)
     }
 
     class Coordinator: NSObject, MTKViewDelegate {
@@ -50,6 +55,7 @@ struct MetalFractalView: NSViewRepresentable {
         }
 
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+            // We always render to fixed-size texture matching renderer size
         }
 
         func draw(in view: MTKView) {
@@ -69,7 +75,10 @@ struct MetalFractalView: NSViewRepresentable {
 
 actor MetalFractalRenderer {
     let size: Int
-    var params: FractalParams
+
+    var rotation: Double
+    var thetaOffset: Double
+
     var colorScheme: FractalColorScheme
 
     private var
@@ -82,7 +91,7 @@ actor MetalFractalRenderer {
         hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.4...1)
 
     private let gpu: any MTLDevice
-    private var density: any MTLBuffer
+    private var densityBuf, lastCompletedDensityBuf: (any MTLBuffer)?
     private let cmdQueue: any MTLCommandQueue
     private let renderOrbitPipelineState: any MTLComputePipelineState
     private let maxDensityPipelineState: any MTLComputePipelineState
@@ -90,9 +99,15 @@ actor MetalFractalRenderer {
     private let renderSquarePipelineState: any MTLRenderPipelineState
     private let squareVertexBuf: any MTLBuffer
 
-    init(_ params: FractalParams) {
-        self.params = params
-        size = Int(params.gridSize)
+    private let maxPointBatchSize = 10000
+    private let gpuThreadCount = 10000
+
+    private var frameRenderCallback: @MainActor @Sendable () -> Void = { }
+
+    init(size: Int, rotation: Double = 0, thetaOffset: Double = 0) {
+        self.size = size
+        self.rotation = rotation
+        self.thetaOffset = thetaOffset
 
         self.colorScheme = FractalColorScheme(
             cool:   simd_float3.zero,
@@ -117,8 +132,6 @@ actor MetalFractalRenderer {
         renderSquareDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormat.bgra8Unorm
         renderSquarePipelineState = try! gpu.makeRenderPipelineState(descriptor: renderSquareDescriptor)
 
-        density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
-
         cmdQueue = gpu.makeCommandQueue()!
 
         let squareVertices = [
@@ -131,24 +144,54 @@ actor MetalFractalRenderer {
             bytes: squareVertices,
             length: squareVertices.count * MemoryLayout.stride(ofValue: squareVertices[0]),
             options: .cpuCacheModeWriteCombined)!
-
-        Task.detached(priority: .medium) {
-            while true {
-                await metalGrid.renderOrbit()
-            }
-        }
     }
 
-    func makeOrbitBuffer() -> any MTLBuffer {
-        return gpu.makeBuffer(length: Int(params.pointBatchSize) * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
+    func renderAnimation(
+        frameCount: Int,
+        pointsPerFrame: Int,
+        ΔrotationPerSecond: Double = 0.1 * (1 + sqrt(5)) / 2,
+        ΔthetaOffsetPerSecond: Double = 0.1,
+        Δt: Double
+    ) async {
+        for frame in 0..<frameCount {
+            print("Rendering frame \(frame)/\(frameCount)...")
+            lastCompletedDensityBuf = densityBuf
+            densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
+
+            var pointsToRender = pointsPerFrame
+            while pointsToRender > 0 {
+                pointsToRender -= renderOrbit(maxPoints: pointsToRender)
+                await Task.yield()
+            }
+
+            await MainActor.run(body: frameRenderCallback)
+
+            colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
+            colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
+            colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
+
+            thetaOffset += ΔthetaOffsetPerSecond * Δt
+            rotation += ΔrotationPerSecond * Δt
+        }
+        print("Rendering complete.")
+    }
+
+    func onFrameRendered(action: @escaping @MainActor @Sendable () -> Void) {
+        frameRenderCallback = action
     }
 
     // Render a batch of points, returning count of actual points rendered
-    func renderOrbit(maxPoints: Int = .max) -> Int {
+    private func renderOrbit(maxPoints: Int = .max) -> Int {
+        guard let densityBuf = densityBuf else {
+            fatalError("no densityBuf available for rendering")
+        }
+
+        let pointBatchSize = min(maxPointBatchSize, maxPoints)
+
         let timer = ContinuousClock.now
         defer {
             if logTiming {
-                print("rendered \(params.pointBatchSize) points in \(ContinuousClock.now - timer)")
+                print("rendered \(pointBatchSize) points in \(ContinuousClock.now - timer)")
             }
         }
 
@@ -156,11 +199,16 @@ actor MetalFractalRenderer {
         let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
         cmdEncoder.setComputePipelineState(renderOrbitPipelineState)
 
-        var params = self.params
-        params.randSeed = .random(in: .fullRange)
+        var params = FractalShaderParams(
+            rotation: Float(rotation),
+            thetaOffset: Float(thetaOffset),
+            gridSize: Int32(size),
+            pointBatchSize: Int32(pointBatchSize),
+            gpuThreadCount: Int32(gpuThreadCount),
+            randSeed: .random(in: .fullRange))
         cmdEncoder.setBytes(&params, length: MemoryLayout.size(ofValue: params), index: 0)
 
-        cmdEncoder.setBuffer(density, offset: 0, index: 1)
+        cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
 
         cmdEncoder.dispatchThreads(
             MTLSize(width: Int(params.gpuThreadCount), height: 1, depth: 1),
@@ -175,39 +223,41 @@ actor MetalFractalRenderer {
         return Int(params.pointBatchSize * params.gpuThreadCount)
     }
 
-    func computeMaxDensity() -> DensityCount {
-        computeChunked(pipelineState: maxDensityPipelineState)
+    private func computeMaxDensity(in densityBuf: any MTLBuffer) -> DensityCount {
+        computeChunked(densityBuf: densityBuf, pipelineState: maxDensityPipelineState)
             .max() ?? 0
     }
 
-    func computeTotalDensity() -> UInt64 {
-        computeChunked(pipelineState: totalDensityPipelineState)
+    private func computeTotalDensity(of densityBuf: any MTLBuffer) -> UInt64 {
+        computeChunked(densityBuf: densityBuf, pipelineState: totalDensityPipelineState)
             .reduce(0, +)
     }
 
     private func computeChunked<Result>(
+        densityBuf: any MTLBuffer,
         pipelineState: any MTLComputePipelineState
     ) -> [Result] {
-//        print("Computing...")
-//        let timer = ContinuousClock.now
-//        defer {
-//            print("Computed in \(ContinuousClock.now - timer)")
-//        }
+        let timer = ContinuousClock.now
+        defer {
+            if logTiming {
+                print("Computed stats in \(ContinuousClock.now - timer)")
+            }
+        }
 
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
         cmdEncoder.setComputePipelineState(pipelineState)
 
-        var params = self.params
-        cmdEncoder.setBytes(&params, length: MemoryLayout.size(ofValue: params), index: 0)
+        var size = self.size
+        cmdEncoder.setBytes(&size, length: MemoryLayout.size(ofValue: size), index: 0)
 
-        cmdEncoder.setBuffer(density, offset: 0, index: 1)
+        cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
 
         let chunkCount = 1000
         let resultBuf = gpu.makeBuffer(length: MemoryLayout<Result>.stride * chunkCount)!
         cmdEncoder.setBuffer(resultBuf, offset: 0, index: 2)
 
-        var chunkSize = (Int(params.gridSize * params.gridSize) + chunkCount - 1) / chunkCount
+        var chunkSize = (Int(size * size) + chunkCount - 1) / chunkCount
         cmdEncoder.setBytes(&chunkSize, length: MemoryLayout.size(ofValue: chunkSize), index: 3)
 
         cmdEncoder.dispatchThreads(
@@ -229,23 +279,18 @@ actor MetalFractalRenderer {
         return result
     }
 
-let goldenRatio: Float = (1 + sqrt(5)) / 2
-
     func draw(in drawable: CAMetalDrawable, descriptor: MTLRenderPassDescriptor) {
-        defer {
-params.thetaOffset += 0.1
-params.rotation += 0.1 * goldenRatio
-let size = Int(params.gridSize)
-density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
+        guard let densityBuf = lastCompletedDensityBuf ?? densityBuf else {
+            return
         }
 
-        let Δt = 1.0
-        colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
-        colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
-        colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
+        let maxDensity = computeMaxDensity(in: densityBuf)
+        let totalDensity = computeTotalDensity(of: densityBuf)
 
-        let maxDensity = computeMaxDensity()
-        let totalDensity = computeTotalDensity()
+        if logStats {
+            print("totalDensity: \(totalDensity)")
+            print("  maxDensity: \(maxDensity)")
+        }
 
         let unitInterval = 0.0...1.0
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(.random(in: unitInterval), .random(in: unitInterval), .random(in: unitInterval), 1)
@@ -257,17 +302,15 @@ density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride
         cmdEncoder.setRenderPipelineState(renderSquarePipelineState)
 
         cmdEncoder.setVertexBuffer(squareVertexBuf, offset: 0, index: 0)
-        var sizeBuf = params.gridSize
 
-        cmdEncoder.setFragmentBuffer(density, offset: 0, index: 0)
-        cmdEncoder.setFragmentBytes(&sizeBuf, length: MemoryLayout.size(ofValue: sizeBuf), index: 1)
-
-        let gridPixelCount = pow(Float(params.gridSize), 2)
+        cmdEncoder.setFragmentBuffer(densityBuf, offset: 0, index: 0)
+        var size = size
+        cmdEncoder.setFragmentBytes(&size, length: MemoryLayout.size(ofValue: size), index: 1)
+        let gridPixelCount = pow(Float(size), 2)
         var maxDensityF = Float(maxDensity)
         var totalDensityScaled = Float(totalDensity) / gridPixelCount * 42
         cmdEncoder.setFragmentBytes(&maxDensityF, length: MemoryLayout.size(ofValue: maxDensityF), index: 2)
         cmdEncoder.setFragmentBytes(&totalDensityScaled, length: MemoryLayout.size(ofValue: totalDensityScaled), index: 3)
-
         cmdEncoder.setFragmentBytes(&colorScheme, length: MemoryLayout.size(ofValue: colorScheme), index: 4)
 
         cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)

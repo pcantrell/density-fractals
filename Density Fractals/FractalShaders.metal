@@ -13,23 +13,23 @@ using namespace metal;
 // MARK: Fractal rendering
 
 kernel void renderOrbit(
-    constant FractalParams* params,
+    constant FractalShaderParams& params,
     device uint* density,
     uint index [[thread_position_in_grid]]
 ) {
-    float sizef = params->gridSize;
+    float sizef = params.gridSize;
     float2x2 rotation = {
-        { cos(params->rotation), sin(params->rotation) },
-        { -sin(params->rotation), cos(params->rotation) }
+        { cos(params.rotation), sin(params.rotation) },
+        { -sin(params.rotation), cos(params.rotation) }
     };
 
     float2 point = {0, 0.5};
 
-    uint64_t rand = params->randSeed ^ index;
+    uint64_t rand = params.randSeed ^ index;
     uint64_t randBits = 0;
     int randBitCount = 0;
 
-    for (int n = 0; n < params->pointBatchSize; n++) {
+    for (int n = 0; n < params.pointBatchSize; n++) {
         if (randBitCount <= 0) {
             rand += 0x9e3779b97f4a7c15;
             uint64_t z = rand;
@@ -43,7 +43,7 @@ kernel void renderOrbit(
             point *= rotation;
         } else {
             float r = point.x * 0.5 + 0.5;
-            float theta = point.y * M_PI_F + params->thetaOffset;
+            float theta = point.y * M_PI_F + params.thetaOffset;
             point = {
                 r * cos(theta),
                 r * sin(theta)
@@ -55,7 +55,7 @@ kernel void renderOrbit(
 
         density[
             int((point.x / 2 + 0.5) * sizef) +
-            int((point.y / 2 + 0.5) * sizef) * params->gridSize
+            int((point.y / 2 + 0.5) * sizef) * params.gridSize
         ]++;
     }
 }
@@ -67,23 +67,23 @@ struct ChunkRange {
 };
 
 ChunkRange computeChunkRange(
-    constant FractalParams* params,
+    int gridSize,
     int chunkSize,
     uint chunkIndex
 ) {
     int start = chunkIndex * chunkSize;
-    int end = min(start + chunkSize, params->gridSize * params->gridSize);
+    int end = min(start + chunkSize, gridSize * gridSize);
     return { start, end };
 }
 
 kernel void maxDensity(
-    constant FractalParams* params,
+    constant int& gridSize,
     device uint* density,
     device uint* result,
     constant int& chunkSize,
     uint chunkIndex [[thread_position_in_grid]]
 ) {
-    ChunkRange range = computeChunkRange(params, chunkSize, chunkIndex);
+    ChunkRange range = computeChunkRange(gridSize, chunkSize, chunkIndex);
 
     uint max = 0;
     for (int n = range.start; n < range.end; n++) {
@@ -96,13 +96,13 @@ kernel void maxDensity(
 }
 
 kernel void totalDensity(
-    constant FractalParams* params,
+    constant int& gridSize,
     device uint* density,
     device uint64_t* result,
     constant int& chunkSize,
     uint chunkIndex [[thread_position_in_grid]]
 ) {
-    ChunkRange range = computeChunkRange(params, chunkSize, chunkIndex);
+    ChunkRange range = computeChunkRange(gridSize, chunkSize, chunkIndex);
 
     uint64_t total = 0;
     for (int n = range.start; n < range.end; n++) {

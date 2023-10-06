@@ -8,7 +8,7 @@ struct RenderVertex {
     vector_float2 position;
 };
 
-struct FractalParams {
+struct FractalShaderParams {
     float rotation;
     float thetaOffset;
 
