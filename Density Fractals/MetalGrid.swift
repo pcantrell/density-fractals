@@ -81,7 +81,8 @@ actor MetalGrid {
         medR    = Wave(Δphase:  pow(0.0014, 0.99), range: 0...0.5),
         medG    = Wave(Δphase: -pow(0.0025, 0.99), range: 0...0.5),
         medB    = Wave(Δphase:  pow(0.0036, 0.99), range: 0...0.5),
-        hotHue  = Wave(Δphase: -pow(0.0053, 0.99))
+        hotHue  = Wave(Δphase: -pow(0.0053, 0.99)),
+        hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.4...1)
 
     private let gpu: any MTLDevice
     private var density: any MTLBuffer
@@ -253,7 +254,7 @@ density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride
         let Δt = 1.0
         colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
         colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
-        colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: 1, b: 1)
+        colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
 
         let maxDensity = computeMaxDensity()
         let totalDensity = computeTotalDensity()
