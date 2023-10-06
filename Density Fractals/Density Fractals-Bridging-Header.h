@@ -11,8 +11,12 @@ struct RenderVertex {
 struct FractalParams {
     float rotation;
     float thetaOffset;
-    int pointBatchSize;
+
     int gridSize;
+
+    int pointBatchSize;
+    int gpuThreadCount;
+
     unsigned long randSeed;
 };
 

@@ -7,13 +7,13 @@
 
 import SwiftUI
 
-let metalGrid = MetalGrid(FractalParams(
+let metalGrid = MetalFractalRenderer(FractalParams(
     rotation: 1.6620565029879701,
     thetaOffset: 3.5144442745012823,
-    pointBatchSize: 10000,
     gridSize: 2048,
+    pointBatchSize: 10000,
+    gpuThreadCount: 10000,
     randSeed: 0))  // set afresh for each render
-let gpuThreadCount = 10000
 
 struct ContentView: View {
 

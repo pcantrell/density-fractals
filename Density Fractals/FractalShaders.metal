@@ -10,6 +10,8 @@
 
 using namespace metal;
 
+// MARK: Fractal rendering
+
 kernel void renderOrbit(
     constant FractalParams* params,
     device uint* density,
@@ -57,6 +59,8 @@ kernel void renderOrbit(
         ]++;
     }
 }
+
+// MARK: Density stats
 
 struct ChunkRange {
     int start, end;
@@ -108,6 +112,8 @@ kernel void totalDensity(
     result[chunkIndex] = total;
 }
 
+// MARK: Image rendering & colorization
+
 struct RasterizerData {
     float4 position [[position]];
     float2 densityPosition;
@@ -128,6 +134,32 @@ vertex RasterizerData densityVertex(
 
     return out;
 }
+
+fragment float4 densityFragment(
+    RasterizerData in [[stage_in]],
+    device uint* density,
+    constant int& densitySize,
+    constant float& maxDensity,
+    constant float& totalDensity,
+    constant FractalColorScheme& colorScheme
+) {
+    int2 densityPosInt = int2(rint(in.densityPosition * vector_float2(densitySize - 1)));
+    uint densityValue = density[densityPosInt.x + densityPosInt.y * densitySize];
+
+    float scale = max(maxDensity, totalDensity);
+    float maxWeight = 1 - pow(maxDensity / scale, 0.5);
+    float luminance = pow(densityValue / scale, 0.5) + pow(densityValue / maxDensity, 1.5) * maxWeight;
+
+    const float medCutoff = 0.12, hotCutoff = 0.3;
+
+    float4 result = 1;
+    result.rgb = colorScheme.cool   * pow(luminance, 0.7)
+               + colorScheme.medium * pow(max(0.0, (luminance - medCutoff) / (1 - medCutoff)), 1.1)
+               + colorScheme.hot    * pow(max(0.0, (luminance - hotCutoff) / (1 - hotCutoff)), 2.5);
+    return result;
+}
+
+// MARK: Unused color experiments
 
 // from https://stackoverflow.com/a/68542762/239816
 float4 rotateHue(
@@ -234,29 +266,4 @@ float4 fakeLab2rgb(float luminance, float redGreen, float yellowBlue, float alph
         luminance * b,
         alpha
     };
-}
-
-
-fragment float4 densityFragment(
-    RasterizerData in [[stage_in]],
-    device uint* density,
-    constant int& densitySize,
-    constant float& maxDensity,
-    constant float& totalDensity,
-    constant FractalColorScheme& colorScheme
-) {
-    int2 densityPosInt = int2(rint(in.densityPosition * vector_float2(densitySize - 1)));
-    uint densityValue = density[densityPosInt.x + densityPosInt.y * densitySize];
-
-    float scale = max(maxDensity, totalDensity);
-    float maxWeight = 1 - pow(maxDensity / scale, 0.5);
-    float luminance = pow(densityValue / scale, 0.5) + pow(densityValue / maxDensity, 1.5) * maxWeight;
-
-    const float medCutoff = 0.12, hotCutoff = 0.3;
-
-    float4 result = 1;
-    result.rgb = colorScheme.cool   * pow(luminance, 0.7)
-               + colorScheme.medium * pow(max(0.0, (luminance - medCutoff) / (1 - medCutoff)), 1.1)
-               + colorScheme.hot    * pow(max(0.0, (luminance - hotCutoff) / (1 - hotCutoff)), 2.5);
-    return result;
 }

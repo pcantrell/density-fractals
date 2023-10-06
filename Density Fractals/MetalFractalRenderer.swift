@@ -13,8 +13,10 @@ import SwiftUI
 typealias PointIndex = Int
 typealias DensityCount = UInt32
 
+private let logTiming = false
+
 struct MetalFractalView: NSViewRepresentable {
-    let metalGrid: MetalGrid
+    let metalGrid: MetalFractalRenderer
 
     @Binding var updateFlag: Bool
 
@@ -41,14 +43,13 @@ struct MetalFractalView: NSViewRepresentable {
     }
 
     class Coordinator: NSObject, MTKViewDelegate {
-        let metalGrid: MetalGrid
+        let metalGrid: MetalFractalRenderer
 
-        init(metalGrid: MetalGrid) {
+        init(metalGrid: MetalFractalRenderer) {
             self.metalGrid = metalGrid
         }
 
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-            print("size will change: \(size)")
         }
 
         func draw(in view: MTKView) {
@@ -60,19 +61,15 @@ struct MetalFractalView: NSViewRepresentable {
                 return
             }
             Task {
-                print("MetalFractalView will draw")
                 await metalGrid.draw(in: drawable, descriptor: descriptor)
-                print("MetalFractalView did draw")
             }
         }
     }
 }
 
-actor MetalGrid {
+actor MetalFractalRenderer {
     let size: Int
-
     var params: FractalParams
-
     var colorScheme: FractalColorScheme
 
     private var
@@ -93,23 +90,14 @@ actor MetalGrid {
     private let renderSquarePipelineState: any MTLRenderPipelineState
     private let squareVertexBuf: any MTLBuffer
 
-private var pointCount = 0
-private var timer = ContinuousClock.now
-
-    @Published var updateCount = 0
-
     init(_ params: FractalParams) {
         self.params = params
-
         size = Int(params.gridSize)
 
-        //CMConvertLuvToXYZ()
         self.colorScheme = FractalColorScheme(
             cool:   simd_float3.zero,
             medium: simd_float3.zero,
             hot:    simd_float3.zero)
-
-        let size = Int(params.gridSize)
 
         gpu = MTLCreateSystemDefaultDevice()!
         let gpuLibrary = gpu.makeDefaultLibrary()!
@@ -155,11 +143,14 @@ private var timer = ContinuousClock.now
         return gpu.makeBuffer(length: Int(params.pointBatchSize) * MemoryLayout<PointIndex>.stride, options: .cpuCacheModeWriteCombined)!
     }
 
-    func renderOrbit() {
-//        let timer = ContinuousClock.now
-//        defer {
-//            print("rendered \(params.pointBatchSize) points in \(ContinuousClock.now - timer)")
-//        }
+    // Render a batch of points, returning count of actual points rendered
+    func renderOrbit(maxPoints: Int = .max) -> Int {
+        let timer = ContinuousClock.now
+        defer {
+            if logTiming {
+                print("rendered \(params.pointBatchSize) points in \(ContinuousClock.now - timer)")
+            }
+        }
 
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
@@ -172,16 +163,16 @@ private var timer = ContinuousClock.now
         cmdEncoder.setBuffer(density, offset: 0, index: 1)
 
         cmdEncoder.dispatchThreads(
-            MTLSize(width: gpuThreadCount, height: 1, depth: 1),
+            MTLSize(width: Int(params.gpuThreadCount), height: 1, depth: 1),
             threadsPerThreadgroup: MTLSize(
-                width: min(gpuThreadCount, renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
+                width: min(Int(params.gpuThreadCount), renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
                 height: 1, depth: 1))
 
         cmdEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
 
-        pointCount += Int(params.pointBatchSize) * gpuThreadCount
+        return Int(params.pointBatchSize * params.gpuThreadCount)
     }
 
     func computeMaxDensity() -> DensityCount {
@@ -241,10 +232,7 @@ private var timer = ContinuousClock.now
 let goldenRatio: Float = (1 + sqrt(5)) / 2
 
     func draw(in drawable: CAMetalDrawable, descriptor: MTLRenderPassDescriptor) {
-        print(Double(pointCount) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
         defer {
-//            pointCount = 0
-//            timer = ContinuousClock.now
 params.thetaOffset += 0.1
 params.rotation += 0.1 * goldenRatio
 let size = Int(params.gridSize)
@@ -258,12 +246,6 @@ density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride
 
         let maxDensity = computeMaxDensity()
         let totalDensity = computeTotalDensity()
-//        print(
-//            Double(maxDensity) / Double(totalDensity) * 1_000_000,
-//            Double(maxDensity) / Double(totalDensity) * pow(Double(params.gridSize), 2))
-//        print("  max density: \(maxDensity)")
-//        print("total density: \(computeTotalDensity())")
-//        print("   pointCount: \(pointCount)")
 
         let unitInterval = 0.0...1.0
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(.random(in: unitInterval), .random(in: unitInterval), .random(in: unitInterval), 1)
@@ -293,24 +275,6 @@ density = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride
         cmdEncoder.endEncoding()
         cmdBuffer.present(drawable)
         cmdBuffer.commit()
-    }
-}
-
-extension Duration {
-    var milliseconds: Double {
-        self / .milliseconds(1)
-    }
-}
-
-extension FixedWidthInteger {
-    static var fullRange: ClosedRange<Self> {
-        (.min)...(.max)
-    }
-}
-
-extension ClosedRange where Bound: FixedWidthInteger {
-    static var fullRange: Self {
-        Bound.fullRange
     }
 }
 
