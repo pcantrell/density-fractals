@@ -8,8 +8,8 @@
 import Foundation
 
 extension Duration {
-    var milliseconds: Double {
-        self / .milliseconds(1)
+    var seconds: Double {
+        self / .seconds(1)
     }
 }
 

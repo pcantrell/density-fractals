@@ -13,7 +13,7 @@ import SwiftUI
 typealias PointIndex = Int
 typealias DensityCount = UInt32
 
-private let logTiming = false, logStats = true
+private let logTiming = true, logStats = true
 
 struct MetalFractalView: NSViewRepresentable {
     let renderer: MetalFractalRenderer
@@ -99,8 +99,8 @@ actor MetalFractalRenderer {
     private let renderSquarePipelineState: any MTLRenderPipelineState
     private let squareVertexBuf: any MTLBuffer
 
-    private let maxPointBatchSize = 10000
-    private let gpuThreadCount = 10000
+    private let maxPointBatchPerThread = 10_000
+    private let gpuThreadCount = 10_000
 
     private var frameRenderCallback: @MainActor @Sendable () -> Void = { }
 
@@ -155,13 +155,20 @@ actor MetalFractalRenderer {
     ) async {
         for frame in 0..<frameCount {
             print("Rendering frame \(frame)/\(frameCount)...")
+            let timer = ContinuousClock.now
+
             lastCompletedDensityBuf = densityBuf
             densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
 
             var pointsToRender = pointsPerFrame
             while pointsToRender > 0 {
                 pointsToRender -= renderOrbit(maxPoints: pointsToRender)
-                await Task.yield()
+                await Task.yield()  // In case anybody's waiting to update completed image
+            }
+
+            if logTiming {
+                print("Rendered frame in \(ContinuousClock.now - timer)")
+                print()
             }
 
             await MainActor.run(body: frameRenderCallback)
@@ -186,12 +193,16 @@ actor MetalFractalRenderer {
             fatalError("no densityBuf available for rendering")
         }
 
-        let pointBatchSize = min(maxPointBatchSize, maxPoints)
+        let idealPointBatchSize = min(maxPointBatchPerThread * gpuThreadCount, maxPoints)
+        let pointBatchPerThread = (idealPointBatchSize + gpuThreadCount - 1) / gpuThreadCount
+        let pointBatchSize = pointBatchPerThread * gpuThreadCount
 
         let timer = ContinuousClock.now
         defer {
             if logTiming {
-                print("rendered \(pointBatchSize) points in \(ContinuousClock.now - timer)")
+                let elapsedTime = ContinuousClock.now - timer
+                print("rendered \(pointBatchSize) points in \(elapsedTime)"
+                    + " (\(Double(pointBatchSize) / elapsedTime.seconds / 1_000_000) megapoints/sec)")
             }
         }
 
@@ -203,7 +214,7 @@ actor MetalFractalRenderer {
             rotation: Float(rotation),
             thetaOffset: Float(thetaOffset),
             gridSize: Int32(size),
-            pointBatchSize: Int32(pointBatchSize),
+            pointBatchPerThread: Int32(pointBatchPerThread),
             gpuThreadCount: Int32(gpuThreadCount),
             randSeed: .random(in: .fullRange))
         cmdEncoder.setBytes(&params, length: MemoryLayout.size(ofValue: params), index: 0)
@@ -211,16 +222,16 @@ actor MetalFractalRenderer {
         cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
 
         cmdEncoder.dispatchThreads(
-            MTLSize(width: Int(params.gpuThreadCount), height: 1, depth: 1),
+            MTLSize(width: gpuThreadCount, height: 1, depth: 1),
             threadsPerThreadgroup: MTLSize(
-                width: min(Int(params.gpuThreadCount), renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
+                width: min(gpuThreadCount, renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
                 height: 1, depth: 1))
 
         cmdEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
 
-        return Int(params.pointBatchSize * params.gpuThreadCount)
+        return pointBatchSize
     }
 
     private func computeMaxDensity(in densityBuf: any MTLBuffer) -> DensityCount {
@@ -291,11 +302,6 @@ actor MetalFractalRenderer {
             print("totalDensity: \(totalDensity)")
             print("  maxDensity: \(maxDensity)")
         }
-
-        let unitInterval = 0.0...1.0
-        descriptor.colorAttachments[0].clearColor = MTLClearColorMake(.random(in: unitInterval), .random(in: unitInterval), .random(in: unitInterval), 1)
-        descriptor.colorAttachments[0].loadAction = .clear
-        descriptor.colorAttachments[0].storeAction = .store
 
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeRenderCommandEncoder(descriptor: descriptor)!

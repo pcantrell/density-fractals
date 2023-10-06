@@ -29,7 +29,7 @@ kernel void renderOrbit(
     uint64_t randBits = 0;
     int randBitCount = 0;
 
-    for (int n = 0; n < params.pointBatchSize; n++) {
+    for (int n = 0; n < params.pointBatchPerThread; n++) {
         if (randBitCount <= 0) {
             rand += 0x9e3779b97f4a7c15;
             uint64_t z = rand;

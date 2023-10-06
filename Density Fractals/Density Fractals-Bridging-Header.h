@@ -14,7 +14,7 @@ struct FractalShaderParams {
 
     int gridSize;
 
-    int pointBatchSize;
+    int pointBatchPerThread;
     int gpuThreadCount;
 
     unsigned long randSeed;
