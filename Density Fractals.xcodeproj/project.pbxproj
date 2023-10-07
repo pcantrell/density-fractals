@@ -17,6 +17,7 @@
 		DA4BE5AF2AC91F7F00AE25A5 /* MetalFractalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5AE2AC91F7F00AE25A5 /* MetalFractalRenderer.swift */; };
 		DA4BE5B12AC9204600AE25A5 /* FractalShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */; };
 		DA5948E62ACF8700000C477E /* Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948E52ACF8700000C477E /* Util.swift */; };
+		DA5948E82ACFD89C000C477E /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948E72ACFD89C000C477E /* VideoEncoder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +52,7 @@
 		DA4BE5AE2AC91F7F00AE25A5 /* MetalFractalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalFractalRenderer.swift; sourceTree = "<group>"; };
 		DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = FractalShaders.metal; sourceTree = "<group>"; };
 		DA5948E52ACF8700000C477E /* Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Util.swift; sourceTree = "<group>"; };
+		DA5948E72ACFD89C000C477E /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
 		DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Density Fractals-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -111,6 +113,7 @@
 				DA4BE5512AC6664F00AE25A5 /* Density_Fractals.entitlements */,
 				DA4BE54E2AC6664F00AE25A5 /* Preview Content */,
 				DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */,
+				DA5948E72ACFD89C000C477E /* VideoEncoder.swift */,
 			);
 			path = "Density Fractals";
 			sourceTree = "<group>";
@@ -275,6 +278,7 @@
 				DA4BE54B2AC6664E00AE25A5 /* ContentView.swift in Sources */,
 				DA5948E62ACF8700000C477E /* Util.swift in Sources */,
 				DA4BE5AF2AC91F7F00AE25A5 /* MetalFractalRenderer.swift in Sources */,
+				DA5948E82ACFD89C000C477E /* VideoEncoder.swift in Sources */,
 				DA4BE5492AC6664E00AE25A5 /* Density_FractalsApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

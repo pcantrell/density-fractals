@@ -67,7 +67,8 @@ struct MetalFractalView: NSViewRepresentable {
                 return
             }
             Task {
-                await metalGrid.draw(in: drawable, descriptor: descriptor)
+                await metalGrid.draw(descriptor: descriptor)
+                drawable.present()
             }
         }
     }
@@ -102,6 +103,8 @@ actor MetalFractalRenderer {
     private let maxPointBatchPerThread = 10_000
     private let gpuThreadCount = 10_000
 
+    private let pixelFormat = MTLPixelFormat.bgra8Unorm
+
     private var frameRenderCallback: @MainActor @Sendable () -> Void = { }
 
     init(size: Int, rotation: Double = 0, thetaOffset: Double = 0) {
@@ -129,7 +132,7 @@ actor MetalFractalRenderer {
         let renderSquareDescriptor = MTLRenderPipelineDescriptor()
         renderSquareDescriptor.vertexFunction = gpuLibrary.makeFunction(name: "densityVertex")!
         renderSquareDescriptor.fragmentFunction = gpuLibrary.makeFunction(name: "densityFragment")!
-        renderSquareDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormat.bgra8Unorm
+        renderSquareDescriptor.colorAttachments[0].pixelFormat = pixelFormat
         renderSquarePipelineState = try! gpu.makeRenderPipelineState(descriptor: renderSquareDescriptor)
 
         cmdQueue = gpu.makeCommandQueue()!
@@ -144,47 +147,6 @@ actor MetalFractalRenderer {
             bytes: squareVertices,
             length: squareVertices.count * MemoryLayout.stride(ofValue: squareVertices[0]),
             options: .cpuCacheModeWriteCombined)!
-    }
-
-    func renderAnimation(
-        frameCount: Int,
-        pointsPerFrame: Int,
-        ΔrotationPerSecond: Double = 0.1 * (1 + sqrt(5)) / 2,
-        ΔthetaOffsetPerSecond: Double = 0.1,
-        Δt: Double
-    ) async {
-        for frame in 0..<frameCount {
-            print("Rendering frame \(frame)/\(frameCount)...")
-            let timer = ContinuousClock.now
-
-            lastCompletedDensityBuf = densityBuf
-            densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
-
-            var pointsToRender = pointsPerFrame
-            while pointsToRender > 0 {
-                pointsToRender -= renderOrbit(maxPoints: pointsToRender)
-                await Task.yield()  // In case anybody's waiting to update completed image
-            }
-
-            if logTiming {
-                print("Rendered frame in \(ContinuousClock.now - timer)")
-                print()
-            }
-
-            await MainActor.run(body: frameRenderCallback)
-
-            colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
-            colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
-            colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
-
-            thetaOffset += ΔthetaOffsetPerSecond * Δt
-            rotation += ΔrotationPerSecond * Δt
-        }
-        print("Rendering complete.")
-    }
-
-    func onFrameRendered(action: @escaping @MainActor @Sendable () -> Void) {
-        frameRenderCallback = action
     }
 
     // Render a batch of points, returning count of actual points rendered
@@ -290,7 +252,7 @@ actor MetalFractalRenderer {
         return result
     }
 
-    func draw(in drawable: CAMetalDrawable, descriptor: MTLRenderPassDescriptor) {
+    func draw(descriptor: MTLRenderPassDescriptor, copyback: MTLTexture? = nil, awaitCompletion: Bool = false) async {
         guard let densityBuf = lastCompletedDensityBuf ?? densityBuf else {
             return
         }
@@ -322,8 +284,91 @@ actor MetalFractalRenderer {
         cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
 
         cmdEncoder.endEncoding()
-        cmdBuffer.present(drawable)
+
+        if let copyback = copyback {
+            let copybackEncoder = cmdBuffer.makeBlitCommandEncoder()!
+            copybackEncoder.synchronize(resource: copyback)
+            copybackEncoder.endEncoding()
+        }
+
         cmdBuffer.commit()
+        if awaitCompletion {
+            cmdBuffer.waitUntilCompleted()
+        }
+    }
+
+    func renderAnimation(
+        frameCount: Int,
+        pointsPerFrame: Int,
+        ΔrotationPerSecond: Double = 0.1 * (1 + sqrt(5)) / 2,
+        ΔthetaOffsetPerSecond: Double = 0.1,
+        Δt: Double
+    ) async {
+        let encoder = try! VideoEncoder(width: size, height: size)
+        print("Generating video at: \(encoder.output.path)")
+
+        for frame in 0..<frameCount {
+            print("Rendering frame \(frame)/\(frameCount)...")
+            let timer = ContinuousClock.now
+
+            lastCompletedDensityBuf = densityBuf
+            densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
+
+            var pointsToRender = pointsPerFrame
+            while pointsToRender > 0 {
+                pointsToRender -= renderOrbit(maxPoints: pointsToRender)
+                await Task.yield()  // In case anybody's waiting to update completed image
+            }
+
+            if logTiming {
+                print("Rendered frame in \(ContinuousClock.now - timer)")
+                print()
+            }
+
+            // Show on screen
+            Task {
+                await MainActor.run(body: self.frameRenderCallback)
+            }
+
+            await self.writeVideoFrame(to: encoder)
+
+            colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
+            colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
+            colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
+
+            thetaOffset += ΔthetaOffsetPerSecond * Δt
+            rotation += ΔrotationPerSecond * Δt
+        }
+
+        await encoder.end()
+        print("Rendering complete.")
+        print(encoder.output.path)
+        try! print(FileManager.default.attributesOfItem(atPath: encoder.output.path)[.size] ?? "???", "bytes")
+    }
+
+    private func writeVideoFrame(to encoder: VideoEncoder) async {
+        // Many portions adapted from https://github.com/warrenm/MetalOfflineRecording/blob/b4ebaddc37950fd5d835ed60530e7f1905e6d293/MetalOfflineRecording/Renderer.swift
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: pixelFormat,
+            width: size,
+            height: size,
+            mipmapped: false)
+        textureDescriptor.usage = [.renderTarget]
+        textureDescriptor.storageMode = .managed
+        let outputTexture = gpu.makeTexture(descriptor: textureDescriptor)!
+        
+        let renderPassDescriptor = MTLRenderPassDescriptor()
+        renderPassDescriptor.colorAttachments[0].texture = outputTexture
+        renderPassDescriptor.colorAttachments[0].loadAction = .clear
+        renderPassDescriptor.colorAttachments[0].storeAction = .store
+        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.5, 0.5, 0.5, 1)
+
+        await draw(descriptor: renderPassDescriptor, copyback: outputTexture, awaitCompletion: true)
+        try! await encoder.writeFrame(forTexture: outputTexture)
+    }
+
+    func onFrameRendered(action: @escaping @MainActor @Sendable () -> Void) {
+        frameRenderCallback = action
     }
 }
 
