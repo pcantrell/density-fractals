@@ -15,6 +15,7 @@ import AppKit
 //
 actor VideoEncoder {
     let output: URL
+    let frameRate: Int
 
     private var assetWriter: AVAssetWriter
     private var assetWriterVideoInput: AVAssetWriterInput
@@ -23,13 +24,14 @@ actor VideoEncoder {
     private(set) var frameNumber: CMTimeValue = 0
     private var completed = false
 
-    init(width: Int, height: Int) throws {
+    init(width: Int, height: Int, frameRate: Int) throws {
         let outputURL = URL.temporaryDirectory.appendingPathComponent("fractal-" + UUID().uuidString + ".m4v")
-        try self.init(output: outputURL, width: width, height: height)
+        try self.init(output: outputURL, width: width, height: height, frameRate: frameRate)
     }
 
-    init(output: URL, width: Int, height: Int) throws {
+    init(output: URL, width: Int, height: Int, frameRate: Int) throws {
         self.output = output
+        self.frameRate = frameRate
 
         assetWriter = try AVAssetWriter(outputURL: output, fileType: .m4v)
 
@@ -85,7 +87,7 @@ actor VideoEncoder {
         
         texture.getBytes(pixelBufferBytes, bytesPerRow: bytesPerRow, from: region, mipmapLevel: 0)
 
-        let presentationTime = CMTime(value: frameNumber, timescale: 60)
+        let presentationTime = CMTime(value: frameNumber, timescale: CMTimeScale(frameRate))
         frameNumber += 1
         guard assetWriterPixelBufferInput.append(pixelBuffer, withPresentationTime: presentationTime) else {
             throw VideoEncoderError(message: "assetWriterPixelBufferInput.append failed")

@@ -21,7 +21,12 @@ struct ContentView: View {
 
         let renderer = renderer
         Task.detached(priority: .medium) {
-            await renderer.renderAnimation(frameCount: 600, pointsPerFrame: 1_000_000_000, Δt: 1 / 20.0)
+            await renderer.renderAnimation(
+                duration: 10,
+                speed: 3,
+                frameRate: 30,
+                pointsPerFrame: 1_000_000_000
+            )
         }
     }
 

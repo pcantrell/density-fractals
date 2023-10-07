@@ -299,11 +299,12 @@ actor MetalFractalRenderer {
     }
 
     func renderAnimation(
-        frameCount: Int,
+        duration: TimeInterval,
+        speed: Double,
+        frameRate: Int,
         pointsPerFrame: Int,
         ΔrotationPerSecond: Double = 0.1 * (1 + sqrt(5)) / 2,
-        ΔthetaOffsetPerSecond: Double = 0.1,
-        Δt: Double
+        ΔthetaOffsetPerSecond: Double = 0.1
     ) async {
         var assertionID: IOPMAssertionID = 0
         IOPMAssertionCreateWithName(
@@ -318,6 +319,9 @@ actor MetalFractalRenderer {
 
         let encoder = try! VideoEncoder(width: size, height: size, frameRate: frameRate)
         print("Generating video at: \(encoder.output.path)")
+
+        let frameCount = Int(ceil(duration * Double(frameRate)))
+        let Δt = speed / Double(frameRate)
 
         for frame in 0..<frameCount {
             print("Rendering frame \(frame)/\(frameCount)...")
