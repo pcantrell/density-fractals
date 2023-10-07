@@ -9,6 +9,7 @@ import Foundation
 import Metal
 import MetalKit
 import SwiftUI
+import IOKit.pwr_mgt
 
 typealias PointIndex = Int
 typealias DensityCount = UInt32
@@ -304,7 +305,18 @@ actor MetalFractalRenderer {
         ΔthetaOffsetPerSecond: Double = 0.1,
         Δt: Double
     ) async {
-        let encoder = try! VideoEncoder(width: size, height: size)
+        var assertionID: IOPMAssertionID = 0
+        IOPMAssertionCreateWithName(
+            kIOPMAssertionTypePreventSystemSleep as CFString,
+            IOPMAssertionLevel(kIOPMAssertionLevelOn),
+            "Rendering fractal" as CFString,
+            &assertionID
+        )
+        defer {
+            IOPMAssertionRelease(assertionID)
+        }
+
+        let encoder = try! VideoEncoder(width: size, height: size, frameRate: frameRate)
         print("Generating video at: \(encoder.output.path)")
 
         for frame in 0..<frameCount {
