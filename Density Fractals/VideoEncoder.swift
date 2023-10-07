@@ -39,7 +39,12 @@ actor VideoEncoder {
             mediaType: .video, outputSettings: [
                 AVVideoCodecKey: AVVideoCodecType.h264,
                 AVVideoWidthKey: width,
-                AVVideoHeightKey: height
+                AVVideoHeightKey: height,
+                AVVideoColorPropertiesKey: [  // https://docs.huihoo.com/apple/wwdc/2016/503_advances_in_avfoundation_playback.pdf
+                    AVVideoColorPrimariesKey: AVVideoColorPrimaries_P3_D65,
+                    AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                    AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+                ]
             ]
         )
         assetWriterVideoInput.expectsMediaDataInRealTime = false

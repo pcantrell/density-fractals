@@ -112,12 +112,12 @@
 				DA4BE54A2AC6664E00AE25A5 /* ContentView.swift */,
 				DA4BE5AE2AC91F7F00AE25A5 /* MetalFractalRenderer.swift */,
 				DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */,
+				DA5948E72ACFD89C000C477E /* VideoEncoder.swift */,
 				DA5948E52ACF8700000C477E /* Util.swift */,
+				DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */,
 				DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */,
 				DA4BE5512AC6664F00AE25A5 /* Density_Fractals.entitlements */,
 				DA4BE54E2AC6664F00AE25A5 /* Preview Content */,
-				DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */,
-				DA5948E72ACFD89C000C477E /* VideoEncoder.swift */,
 			);
 			path = "Density Fractals";
 			sourceTree = "<group>";
