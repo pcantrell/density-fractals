@@ -332,45 +332,45 @@ actor MetalFractalRenderer {
         let encoder = try! VideoEncoder(width: size, height: size, frameRate: frameRate)
         print("Generating video at: \(encoder.output.path)")
 
-        var timeRendered: Double = 0
+        var timeRendered: Double = -startTime
         let ΔtBase = speed / Double(frameRate)
 
-        thetaOffset += ΔthetaOffsetPerSecond * speed * startTime
-        rotation += ΔrotationPerSecond * speed * startTime
-
         while timeRendered < duration {
-            print("Rendering \(timeRendered) / \(duration) sec",
-                "(\(Int(timeRendered / duration * 100))%)",
-                "t=\(startTime + timeRendered))...")
-            let timer = ContinuousClock.now
-
-            lastCompletedDensityBuf = densityBuf
-            densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
-
-            var pointsToRender = pointsPerFrame
-            while pointsToRender > 0 {
-                pointsToRender -= renderOrbit(maxPoints: pointsToRender)
-                await Task.yield()  // In case anybody's waiting to update completed image
-            }
-
-            if logTiming {
-                print("Rendered frame in \(ContinuousClock.now - timer)")
-                print()
-            }
-
-            // Show on screen
-            Task {
-                await MainActor.run(body: self.frameRenderCallback)
-            }
-
-            let stats = await self.writeVideoFrame(to: encoder)
-
             let Δt = ΔtBase / (1 + apogeeSlowdown * (1 * pow((1 - cos(rotation)) / 2, 80)))
 
-            if logStats {
-                print("           totalDensity: \(stats.totalDensity)")
-                print("             maxDensity: \(stats.maxDensity)")
-                print("          concentration: \(stats.concentration)")
+            if timeRendered > 0 {
+                print("Rendering \(timeRendered) / \(duration) sec",
+                    "(\(Int(timeRendered / duration * 100))%)",
+                    "t=\(startTime + timeRendered))...")
+
+                let timer = ContinuousClock.now
+
+                lastCompletedDensityBuf = densityBuf
+                densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
+
+                var pointsToRender = pointsPerFrame
+                while pointsToRender > 0 {
+                    pointsToRender -= renderOrbit(maxPoints: pointsToRender)
+                    await Task.yield()  // In case anybody's waiting to update completed image
+                }
+
+                if logTiming {
+                    print("Rendered frame in \(ContinuousClock.now - timer)")
+                    print()
+                }
+
+                // Show on screen
+                Task {
+                    await MainActor.run(body: self.frameRenderCallback)
+                }
+
+                let stats = await self.writeVideoFrame(to: encoder)
+
+                if logStats {
+                    print("           totalDensity: \(stats.totalDensity)")
+                    print("             maxDensity: \(stats.maxDensity)")
+                    print("          concentration: \(stats.concentration)")
+                }
             }
 
             colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
@@ -380,7 +380,7 @@ actor MetalFractalRenderer {
             thetaOffset += ΔthetaOffsetPerSecond * Δt
             rotation += ΔrotationPerSecond * Δt
 
-            timeRendered += Δt / speed
+            timeRendered += 1 / Double(frameRate)
         }
 
         await encoder.end()
