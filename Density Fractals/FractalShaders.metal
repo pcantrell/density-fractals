@@ -146,16 +146,17 @@ fragment float4 densityFragment(
     int2 densityPosInt = int2(rint(in.densityPosition * vector_float2(densitySize - 1)));
     uint densityValue = density[densityPosInt.x + densityPosInt.y * densitySize];
 
-    float scale = max(maxDensity, totalDensity);
+    float scale = max(maxDensity * 0.5, totalDensity);
     float maxWeight = 1 - pow(maxDensity / scale, 0.5);
     float luminance = pow(densityValue / scale, 0.5) + pow(densityValue / maxDensity, 1.5) * maxWeight;
+    float hotLuminance = pow(densityValue / maxDensity, 1.5);
 
     const float medCutoff = 0.12, hotCutoff = 0.3;
 
     float4 result = 1;
     result.rgb = colorScheme.cool   * pow(luminance, 0.7)
                + colorScheme.medium * pow(max(0.0, (luminance - medCutoff) / (1 - medCutoff)), 1.1)
-               + colorScheme.hot    * pow(max(0.0, (luminance - hotCutoff) / (1 - hotCutoff)), 2.5);
+               + colorScheme.hot    * pow(max(0.0, (hotLuminance - hotCutoff) / (1 - hotCutoff)), 2.5);
     return result;
 }
 

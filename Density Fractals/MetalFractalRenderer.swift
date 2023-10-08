@@ -99,7 +99,7 @@ actor MetalFractalRenderer {
         medG    = Wave(Δphase: -pow(0.0025, 0.99), range: 0...0.5),
         medB    = Wave(Δphase:  pow(0.0036, 0.99), range: 0...0.5),
         hotHue  = Wave(Δphase: -pow(0.0053, 0.99)),
-        hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.4...1)
+        hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.2...0.7)
 
     private let gpu: any MTLDevice
     private var densityBuf, lastCompletedDensityBuf: (any MTLBuffer)?
