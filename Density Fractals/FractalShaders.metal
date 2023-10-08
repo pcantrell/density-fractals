@@ -17,6 +17,8 @@ kernel void renderOrbit(
     device uint* density,
     uint index [[thread_position_in_grid]]
 ) {
+    const float enlargement = 1.15;
+
     float sizef = params.gridSize;
     float2x2 rotation = {
         { cos(params.rotation), sin(params.rotation) },
@@ -53,10 +55,13 @@ kernel void renderOrbit(
         randBits >>= 1;
         randBitCount--;
 
-        density[
-            int((point.x / 2 + 0.5) * sizef) +
-            int((point.y / 2 + 0.5) * sizef) * params.gridSize
-        ]++;
+        float2 pixel = (point * enlargement / 2 + 0.5) * sizef;
+        if (pixel.x > 0 && pixel.x < sizef && pixel.y > 0 && pixel.y < sizef) {
+            density[
+                int(pixel.x) +
+                int(pixel.y) * params.gridSize
+            ]++;
+        }
     }
 }
 
