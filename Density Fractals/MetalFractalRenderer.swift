@@ -14,7 +14,16 @@ import IOKit.pwr_mgt
 typealias PointIndex = Int
 typealias DensityCount = UInt32
 
-private let logTiming = true, logStats = true
+struct DensityStats {
+    var maxDensity: DensityCount
+    var totalDensity: UInt64
+
+    var concentration: Double {
+        Double(maxDensity) / Double(totalDensity)
+    }
+}
+
+private let logTiming = false, logStats = true
 
 struct MetalFractalView: NSViewRepresentable {
     let renderer: MetalFractalRenderer
@@ -253,18 +262,18 @@ actor MetalFractalRenderer {
         return result
     }
 
-    func draw(descriptor: MTLRenderPassDescriptor, copyback: MTLTexture? = nil, awaitCompletion: Bool = false) async {
+    @discardableResult
+    func draw(
+        descriptor: MTLRenderPassDescriptor,
+        copyback: MTLTexture? = nil,  // to make pixels available to CPU
+        awaitCompletion: Bool = false
+    ) async -> DensityStats {
         guard let densityBuf = lastCompletedDensityBuf ?? densityBuf else {
-            return
+            return DensityStats(maxDensity: 0, totalDensity: 0)
         }
 
         let maxDensity = computeMaxDensity(in: densityBuf)
         let totalDensity = computeTotalDensity(of: densityBuf)
-
-        if logStats {
-            print("totalDensity: \(totalDensity)")
-            print("  maxDensity: \(maxDensity)")
-        }
 
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
@@ -296,11 +305,14 @@ actor MetalFractalRenderer {
         if awaitCompletion {
             cmdBuffer.waitUntilCompleted()
         }
+        return DensityStats(maxDensity: maxDensity, totalDensity: totalDensity)
     }
 
     func renderAnimation(
+        startTime: TimeInterval = 0,
         duration: TimeInterval,
         speed: Double,
+        highDensitySlowFactor: Double = 1,
         frameRate: Int,
         pointsPerFrame: Int,
         ΔrotationPerSecond: Double = 0.1 * (1 + sqrt(5)) / 2,
@@ -320,11 +332,17 @@ actor MetalFractalRenderer {
         let encoder = try! VideoEncoder(width: size, height: size, frameRate: frameRate)
         print("Generating video at: \(encoder.output.path)")
 
-        let frameCount = Int(ceil(duration * Double(frameRate)))
-        let Δt = speed / Double(frameRate)
+        var timeRendered: Double = 0
+        let ΔtBase = speed / Double(frameRate)
+        var concentrationRecent: Double = 6
 
-        for frame in 0..<frameCount {
-            print("Rendering frame \(frame)/\(frameCount)...")
+        thetaOffset += ΔthetaOffsetPerSecond * speed * startTime
+        rotation += ΔrotationPerSecond * speed * startTime
+
+        while timeRendered < duration {
+            print("Rendering \(timeRendered) / \(duration) sec",
+                "(\(Int(timeRendered / duration * 100))%)",
+                "t=\(startTime + timeRendered))...")
             let timer = ContinuousClock.now
 
             lastCompletedDensityBuf = densityBuf
@@ -346,7 +364,35 @@ actor MetalFractalRenderer {
                 await MainActor.run(body: self.frameRenderCallback)
             }
 
-            await self.writeVideoFrame(to: encoder)
+            let stats = await self.writeVideoFrame(to: encoder)
+
+            // When rotation is near zero, points always gather near one spot. We don't want to slow for those
+            // regular cyclic concentrations, only for the more interesting attractors.
+            let rotNorm = ((rotation + .pi).truncatingRemainder(dividingBy: 2 * .pi) - .pi) / .pi
+            let concentrationAdj = stats.concentration * (rotNorm * rotNorm) * 1_000_000
+            let concentrationExtrap = max(
+                concentrationAdj,
+                concentrationAdj + (concentrationAdj - concentrationRecent) * Double(frameRate) * 0.5)
+
+            // Now compute a slowdown factor when the attractor is heavily concentrated in a small area
+            let slowdownStart = 9.0,  // point at which slowdown really kicks in
+                slowdownEase = 4.5    // larger = more gradual onset
+            let slowdown =
+                (erf((concentrationExtrap - slowdownStart - slowdownEase) / slowdownEase) + 1) / 2
+                * (highDensitySlowFactor - 1) + 1
+            let Δt = ΔtBase / slowdown
+            concentrationRecent = concentrationAdj * 0.2 + concentrationRecent * 0.8  // TODO: adjust for framerate
+
+            if logStats {
+                print("           totalDensity: \(stats.totalDensity)")
+                print("             maxDensity: \(stats.maxDensity)")
+                print("                rotNorm: \(rotNorm)")
+                print("          concentration: \(stats.concentration)")
+                print("       concentrationAdj: \(concentrationAdj)")
+                print("    concentration trend: \(concentrationAdj - concentrationRecent)")
+                print("    concentrationExtrap: \(concentrationExtrap)")
+                print("               slowdown: \(slowdown)")
+            }
 
             colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
             colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
@@ -354,6 +400,8 @@ actor MetalFractalRenderer {
 
             thetaOffset += ΔthetaOffsetPerSecond * Δt
             rotation += ΔrotationPerSecond * Δt
+
+            timeRendered += Δt / speed
         }
 
         await encoder.end()
@@ -362,7 +410,7 @@ actor MetalFractalRenderer {
         try! print(FileManager.default.attributesOfItem(atPath: encoder.output.path)[.size] ?? "???", "bytes")
     }
 
-    private func writeVideoFrame(to encoder: VideoEncoder) async {
+    private func writeVideoFrame(to encoder: VideoEncoder) async -> DensityStats {
         // Many portions adapted from https://github.com/warrenm/MetalOfflineRecording/blob/b4ebaddc37950fd5d835ed60530e7f1905e6d293/MetalOfflineRecording/Renderer.swift
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: pixelFormat,
@@ -379,8 +427,9 @@ actor MetalFractalRenderer {
         renderPassDescriptor.colorAttachments[0].storeAction = .store
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.5, 0.5, 0.5, 1)
 
-        await draw(descriptor: renderPassDescriptor, copyback: outputTexture, awaitCompletion: true)
+        let stats = await draw(descriptor: renderPassDescriptor, copyback: outputTexture, awaitCompletion: true)
         try! await encoder.writeFrame(forTexture: outputTexture)
+        return stats
     }
 
     func onFrameRendered(action: @escaping @MainActor @Sendable () -> Void) {

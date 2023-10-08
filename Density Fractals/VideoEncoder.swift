@@ -25,7 +25,7 @@ actor VideoEncoder {
     private var completed = false
 
     init(width: Int, height: Int, frameRate: Int) throws {
-        let outputURL = URL.temporaryDirectory.appendingPathComponent("fractal-" + UUID().uuidString + ".m4v")
+        let outputURL = URL.temporaryDirectory.appendingPathComponent("fractal-" + UUID().uuidString + ".mov")
         try self.init(output: outputURL, width: width, height: height, frameRate: frameRate)
     }
 
@@ -33,11 +33,11 @@ actor VideoEncoder {
         self.output = output
         self.frameRate = frameRate
 
-        assetWriter = try AVAssetWriter(outputURL: output, fileType: .m4v)
+        assetWriter = try AVAssetWriter(outputURL: output, fileType: .mov)
 
         assetWriterVideoInput = AVAssetWriterInput(
             mediaType: .video, outputSettings: [
-                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoCodecKey: AVVideoCodecType.proRes422HQ,
                 AVVideoWidthKey: width,
                 AVVideoHeightKey: height,
                 AVVideoColorPropertiesKey: [  // https://docs.huihoo.com/apple/wwdc/2016/503_advances_in_avfoundation_playback.pdf
