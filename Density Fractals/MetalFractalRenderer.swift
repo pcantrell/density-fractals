@@ -77,8 +77,9 @@ struct MetalFractalView: NSViewRepresentable {
                 return
             }
             Task {
-                await metalGrid.draw(descriptor: descriptor)
-                drawable.present()
+                if await metalGrid.drawLastCompleted(descriptor: descriptor) {
+                    drawable.present()
+                }
             }
         }
     }
@@ -102,7 +103,7 @@ actor MetalFractalRenderer {
         hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.2...0.7)
 
     private let gpu: any MTLDevice
-    private var densityBuf, lastCompletedDensityBuf: (any MTLBuffer)?
+    private var lastCompletedDensityBuf: (any MTLBuffer)?
     private let cmdQueue: any MTLCommandQueue
     private let renderOrbitPipelineState: any MTLComputePipelineState
     private let maxDensityPipelineState: any MTLComputePipelineState
@@ -160,11 +161,7 @@ actor MetalFractalRenderer {
     }
 
     // Render a batch of points, returning count of actual points rendered
-    private func renderOrbit(maxPoints: Int = .max) -> Int {
-        guard let densityBuf = densityBuf else {
-            fatalError("no densityBuf available for rendering")
-        }
-
+    private func renderOrbit(to densityBuf: any MTLBuffer, maxPoints: Int = .max) -> Int {
         let idealPointBatchSize = min(maxPointBatchPerThread * gpuThreadCount, maxPoints)
         let pointBatchPerThread = (idealPointBatchSize + gpuThreadCount - 1) / gpuThreadCount
         let pointBatchSize = pointBatchPerThread * gpuThreadCount
@@ -262,16 +259,21 @@ actor MetalFractalRenderer {
         return result
     }
 
+    func drawLastCompleted(descriptor: MTLRenderPassDescriptor) async -> Bool {
+        guard let densityBuf = lastCompletedDensityBuf else {
+            return false
+        }
+        await draw(densityBuf, descriptor: descriptor)
+        return true
+    }
+
     @discardableResult
     func draw(
+        _ densityBuf: any MTLBuffer,
         descriptor: MTLRenderPassDescriptor,
         copyback: MTLTexture? = nil,  // to make pixels available to CPU
         awaitCompletion: Bool = false
     ) async -> DensityStats {
-        guard let densityBuf = lastCompletedDensityBuf ?? densityBuf else {
-            return DensityStats(maxDensity: 0, totalDensity: 0)
-        }
-
         let maxDensity = computeMaxDensity(in: densityBuf)
         let totalDensity = computeTotalDensity(of: densityBuf)
 
@@ -332,50 +334,39 @@ actor MetalFractalRenderer {
         let encoder = try! VideoEncoder(width: size, height: size, frameRate: frameRate)
         print("Generating video at: \(encoder.output.path)")
 
+        updateColorScheme(Δt: 0)  // initialize colors
+
         var timeRendered: Double = -startTime
         let ΔtBase = speed / Double(frameRate)
 
         while timeRendered < duration {
             let Δt = ΔtBase / (1 + apogeeSlowdown * (1 * pow((1 - cos(rotation)) / 2, 80)))
 
-            if timeRendered > 0 {
+            if timeRendered >= 0 {
                 print("Rendering \(timeRendered) / \(duration) sec",
                     "(\(Int(timeRendered / duration * 100))%)",
                     "t=\(startTime + timeRendered))...")
 
-                let timer = ContinuousClock.now
-
-                lastCompletedDensityBuf = densityBuf
-                densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
-
-                var pointsToRender = pointsPerFrame
-                while pointsToRender > 0 {
-                    pointsToRender -= renderOrbit(maxPoints: pointsToRender)
-                    await Task.yield()  // In case anybody's waiting to update completed image
-                }
-
-                if logTiming {
-                    print("Rendered frame in \(ContinuousClock.now - timer)")
-                    print()
-                }
+                let densityBuf = await renderImage(samplePoints: pointsPerFrame)
 
                 // Show on screen
                 Task {
                     await MainActor.run(body: self.frameRenderCallback)
                 }
 
-                let stats = await self.writeVideoFrame(to: encoder)
+                let stats = await self.writeVideoFrame(from: densityBuf, to: encoder)
 
                 if logStats {
                     print("           totalDensity: \(stats.totalDensity)")
                     print("             maxDensity: \(stats.maxDensity)")
                     print("          concentration: \(stats.concentration)")
                 }
+                if logStats || logTiming {
+                    print()
+                }
             }
 
-            colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
-            colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
-            colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
+            updateColorScheme(Δt: Δt)
 
             thetaOffset += ΔthetaOffsetPerSecond * Δt
             rotation += ΔrotationPerSecond * Δt
@@ -389,7 +380,33 @@ actor MetalFractalRenderer {
         try! print(FileManager.default.attributesOfItem(atPath: encoder.output.path)[.size] ?? "???", "bytes")
     }
 
-    private func writeVideoFrame(to encoder: VideoEncoder) async -> DensityStats {
+    private func updateColorScheme(Δt: Double) {
+        colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
+        colorScheme.medium = simdColor(r: medR.next(speed: Δt), g: medG.next(speed: Δt), b: medB.next(speed: Δt))
+        colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
+    }
+
+    func renderImage(samplePoints: Int) async -> any MTLBuffer {
+        let timer = ContinuousClock.now
+        defer {
+            if logTiming {
+                print("Rendered image in \(ContinuousClock.now - timer)")
+            }
+        }
+
+        let densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
+
+        var pointsToRender = samplePoints
+        while pointsToRender > 0 {
+            pointsToRender -= renderOrbit(to: densityBuf, maxPoints: pointsToRender)
+            await Task.yield()  // In case anybody's waiting to update completed image
+        }
+
+        lastCompletedDensityBuf = densityBuf
+        return densityBuf
+    }
+
+    private func writeVideoFrame(from densityBuf: any MTLBuffer, to encoder: VideoEncoder) async -> DensityStats {
         // Many portions adapted from https://github.com/warrenm/MetalOfflineRecording/blob/b4ebaddc37950fd5d835ed60530e7f1905e6d293/MetalOfflineRecording/Renderer.swift
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: pixelFormat,
@@ -406,7 +423,7 @@ actor MetalFractalRenderer {
         renderPassDescriptor.colorAttachments[0].storeAction = .store
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.5, 0.5, 0.5, 1)
 
-        let stats = await draw(descriptor: renderPassDescriptor, copyback: outputTexture, awaitCompletion: true)
+        let stats = await draw(densityBuf, descriptor: renderPassDescriptor, copyback: outputTexture, awaitCompletion: true)
         try! await encoder.writeFrame(forTexture: outputTexture)
         return stats
     }
