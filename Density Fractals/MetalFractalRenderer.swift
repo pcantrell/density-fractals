@@ -23,7 +23,7 @@ struct DensityStats {
     }
 }
 
-private let logTiming = false, logStats = true
+private let logTiming = true, logStats = false
 
 struct MetalFractalView: NSViewRepresentable {
     let renderer: MetalFractalRenderer
@@ -312,7 +312,7 @@ actor MetalFractalRenderer {
         startTime: TimeInterval = 0,
         duration: TimeInterval,
         speed: Double,
-        highDensitySlowFactor: Double = 1,
+        apogeeSlowdown: Double = 1,
         frameRate: Int,
         pointsPerFrame: Int,
         ΔrotationPerSecond: Double = 0.1 * (1 + sqrt(5)) / 2,
@@ -334,7 +334,6 @@ actor MetalFractalRenderer {
 
         var timeRendered: Double = 0
         let ΔtBase = speed / Double(frameRate)
-        var concentrationRecent: Double = 6
 
         thetaOffset += ΔthetaOffsetPerSecond * speed * startTime
         rotation += ΔrotationPerSecond * speed * startTime
@@ -366,32 +365,12 @@ actor MetalFractalRenderer {
 
             let stats = await self.writeVideoFrame(to: encoder)
 
-            // When rotation is near zero, points always gather near one spot. We don't want to slow for those
-            // regular cyclic concentrations, only for the more interesting attractors.
-            let rotNorm = ((rotation + .pi).truncatingRemainder(dividingBy: 2 * .pi) - .pi) / .pi
-            let concentrationAdj = stats.concentration * (rotNorm * rotNorm) * 1_000_000
-            let concentrationExtrap = max(
-                concentrationAdj,
-                concentrationAdj + (concentrationAdj - concentrationRecent) * Double(frameRate) * 0.5)
-
-            // Now compute a slowdown factor when the attractor is heavily concentrated in a small area
-            let slowdownStart = 9.0,  // point at which slowdown really kicks in
-                slowdownEase = 4.5    // larger = more gradual onset
-            let slowdown =
-                (erf((concentrationExtrap - slowdownStart - slowdownEase) / slowdownEase) + 1) / 2
-                * (highDensitySlowFactor - 1) + 1
-            let Δt = ΔtBase / slowdown
-            concentrationRecent = concentrationAdj * 0.2 + concentrationRecent * 0.8  // TODO: adjust for framerate
+            let Δt = ΔtBase / (1 + apogeeSlowdown * (1 * pow((1 - cos(rotation)) / 2, 80)))
 
             if logStats {
                 print("           totalDensity: \(stats.totalDensity)")
                 print("             maxDensity: \(stats.maxDensity)")
-                print("                rotNorm: \(rotNorm)")
                 print("          concentration: \(stats.concentration)")
-                print("       concentrationAdj: \(concentrationAdj)")
-                print("    concentration trend: \(concentrationAdj - concentrationRecent)")
-                print("    concentrationExtrap: \(concentrationExtrap)")
-                print("               slowdown: \(slowdown)")
             }
 
             colorScheme.cool = simdColor(h: coolHue.next(speed: Δt), s: coolSat.next(speed: Δt), b: 0.6)
