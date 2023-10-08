@@ -315,8 +315,8 @@ actor MetalFractalRenderer {
         apogeeSlowdown: Double = 1,
         frameRate: Int,
         pointsPerFrame: Int,
-        ΔrotationPerSecond: Double = 0.1 * (1 + sqrt(5)) / 2,
-        ΔthetaOffsetPerSecond: Double = 0.1
+        ΔrotationPerSecond: Double,
+        ΔthetaOffsetPerSecond: Double
     ) async {
         var assertionID: IOPMAssertionID = 0
         IOPMAssertionCreateWithName(

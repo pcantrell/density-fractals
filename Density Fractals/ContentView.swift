@@ -7,11 +7,13 @@
 
 import SwiftUI
 
+private let golden = (1 + sqrt(5)) / 2
+
 struct ContentView: View {
     let renderer = MetalFractalRenderer(
         size: 2048,
-        rotation: 1.6620565029879701,
-        thetaOffset: 3.5144442745012823)
+        rotation: 0,
+        thetaOffset: 3.5144442745012823 - 1.6620565029879701 / golden)
 
     var timerEnabled = true
     @State var fractalImage: CGImage?
@@ -22,10 +24,13 @@ struct ContentView: View {
         let renderer = renderer
         Task.detached(priority: .medium) {
             await renderer.renderAnimation(
-                duration: 10,
-                speed: 3,
+                duration: 240,
+                speed: 2,
+                apogeeSlowdown: 2,
                 frameRate: 30,
-                pointsPerFrame: 1_000_000_000
+                pointsPerFrame: 1_000_000_000,
+                ΔrotationPerSecond: 0.1 * golden,
+                ΔthetaOffsetPerSecond: 0.1
             )
         }
     }
