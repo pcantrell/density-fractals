@@ -10,6 +10,7 @@ import Metal
 import MetalKit
 import SwiftUI
 import IOKit.pwr_mgt
+import MetalPerformanceShaders
 
 typealias PointIndex = Int
 typealias DensityCount = UInt32
@@ -34,6 +35,7 @@ struct MetalFractalView: NSViewRepresentable {
         view.device = MTLCreateSystemDefaultDevice()
         view.delegate = context.coordinator
         view.enableSetNeedsDisplay = true
+        view.framebufferOnly = false
         view.colorspace = .init(name: CGColorSpace.displayP3)
 
         Task {
@@ -277,16 +279,27 @@ actor MetalFractalRenderer {
     ) async -> DensityStats {
         let maxDensity = computeMaxDensity(in: densityBuf)
         let totalDensity = computeTotalDensity(of: densityBuf)
-
         maxDensitySmoothing.append(Double(maxDensity))
         var maxDensitySmoothed = Float(ceil(maxDensitySmoothing.average()))
 
+        // Create intermediate texture for rendering before sharpening
+        let descriptor = descriptor.copy() as! MTLRenderPassDescriptor
+        let finalOutputTexture = descriptor.colorAttachments[0].texture!
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: pixelFormat,
+            width: size,
+            height: size,
+            mipmapped: false)
+        textureDescriptor.usage = [.shaderRead, .shaderWrite, .renderTarget]
+        textureDescriptor.storageMode = .managed
+        let rawFractalTexture = gpu.makeTexture(descriptor: textureDescriptor)!
+        descriptor.colorAttachments[0].texture = rawFractalTexture
+
+        // Render fractal
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
         cmdEncoder.setRenderPipelineState(renderSquarePipelineState)
-
         cmdEncoder.setVertexBuffer(squareVertexBuf, offset: 0, index: 0)
-
         cmdEncoder.setFragmentBuffer(densityBuf, offset: 0, index: 0)
         var size = size
         cmdEncoder.setFragmentBytes(&size, length: MemoryLayout.size(ofValue: size), index: 1)
@@ -295,11 +308,18 @@ actor MetalFractalRenderer {
         cmdEncoder.setFragmentBytes(&maxDensitySmoothed, length: MemoryLayout.size(ofValue: maxDensitySmoothed), index: 2)
         cmdEncoder.setFragmentBytes(&totalDensityScaled, length: MemoryLayout.size(ofValue: totalDensityScaled), index: 3)
         cmdEncoder.setFragmentBytes(&colorScheme, length: MemoryLayout.size(ofValue: colorScheme), index: 4)
-
         cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-
         cmdEncoder.endEncoding()
 
+        // Sharpen image
+        ConvolutionKernel.sharpen(amount: 0.7, sigma: Float(size) * 0.0075)
+            .makeMPSKernel(device: gpu)
+            .encode(
+                commandBuffer: cmdBuffer,
+                sourceTexture: rawFractalTexture,
+                destinationTexture: finalOutputTexture)
+
+        // Make pixels accessible to CPU if needed
         if let copyback = copyback {
             let copybackEncoder = cmdBuffer.makeBlitCommandEncoder()!
             copybackEncoder.synchronize(resource: copyback)
@@ -416,7 +436,7 @@ actor MetalFractalRenderer {
             width: size,
             height: size,
             mipmapped: false)
-        textureDescriptor.usage = [.renderTarget]
+        textureDescriptor.usage = [.shaderWrite, .renderTarget]
         textureDescriptor.storageMode = .managed
         let outputTexture = gpu.makeTexture(descriptor: textureDescriptor)!
         
