@@ -17,7 +17,7 @@ kernel void renderOrbit(
     device uint* density,
     uint index [[thread_position_in_grid]]
 ) {
-    const float enlargement = 1.15;
+    const float enlargement = 1.1;
 
     float sizef = params.gridSize;
     float2x2 rotation = {
