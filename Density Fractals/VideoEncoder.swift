@@ -70,7 +70,7 @@ actor VideoEncoder {
 
         while !assetWriterVideoInput.isReadyForMoreMediaData {
             print("*************** assetWriterVideoInput not ready for more data yet ***************")
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: 100_000)
         }
 
         guard let pixelBufferPool = assetWriterPixelBufferInput.pixelBufferPool else {
