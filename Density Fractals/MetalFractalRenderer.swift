@@ -101,6 +101,7 @@ actor MetalFractalRenderer {
         medB    = Wave(Δphase:  pow(0.0036, 0.99), range: 0...0.5),
         hotHue  = Wave(Δphase: -pow(0.0053, 0.99)),
         hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.2...0.7)
+    private var maxDensitySmoothing = GaussianMedian(windowSize: 9, sigma: 1.6)
 
     private let gpu: any MTLDevice
     private var lastCompletedDensityBuf: (any MTLBuffer)?
@@ -277,6 +278,9 @@ actor MetalFractalRenderer {
         let maxDensity = computeMaxDensity(in: densityBuf)
         let totalDensity = computeTotalDensity(of: densityBuf)
 
+        maxDensitySmoothing.append(Double(maxDensity))
+        var maxDensitySmoothed = Float(ceil(maxDensitySmoothing.average()))
+
         let cmdBuffer = cmdQueue.makeCommandBuffer()!
         let cmdEncoder = cmdBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
         cmdEncoder.setRenderPipelineState(renderSquarePipelineState)
@@ -287,9 +291,8 @@ actor MetalFractalRenderer {
         var size = size
         cmdEncoder.setFragmentBytes(&size, length: MemoryLayout.size(ofValue: size), index: 1)
         let gridPixelCount = pow(Float(size), 2)
-        var maxDensityF = Float(maxDensity)
         var totalDensityScaled = Float(totalDensity) / gridPixelCount * 42
-        cmdEncoder.setFragmentBytes(&maxDensityF, length: MemoryLayout.size(ofValue: maxDensityF), index: 2)
+        cmdEncoder.setFragmentBytes(&maxDensitySmoothed, length: MemoryLayout.size(ofValue: maxDensitySmoothed), index: 2)
         cmdEncoder.setFragmentBytes(&totalDensityScaled, length: MemoryLayout.size(ofValue: totalDensityScaled), index: 3)
         cmdEncoder.setFragmentBytes(&colorScheme, length: MemoryLayout.size(ofValue: colorScheme), index: 4)
 
@@ -460,3 +463,36 @@ fileprivate struct Wave {
     }
 }
 
+struct GaussianMedian {
+    private let windowSize: Int
+    private let sigma: Double
+    private var recentValues: [Double] = []
+
+    init(windowSize: Int, sigma: Double) {
+        self.windowSize = windowSize
+        self.sigma = sigma
+    }
+
+    mutating func clear() {
+        recentValues.removeAll(keepingCapacity: true)
+    }
+
+    mutating func append(_ value: Double) {
+        recentValues.append(value)
+        if recentValues.count > windowSize {
+            recentValues.removeFirst()
+        }
+    }
+
+    func average() -> Double {
+        var total: Double = 0
+        var totalWeight: Double = 0
+        let center = Double(windowSize - 1) / 2
+        for (index, value) in recentValues.sorted().enumerated() {
+            let weight = exp(-pow(Double(index) - center, 2) / (2 * sigma * sigma))
+            total += value * weight
+            totalWeight += weight
+        }
+        return total / totalWeight
+    }
+}
