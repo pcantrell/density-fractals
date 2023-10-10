@@ -97,7 +97,7 @@ actor MetalFractalRenderer {
     var colorScheme: FractalColorScheme
 
     private var
-        coolHue = Wave(Δphase:  pow(0.0030, 0.99)),  // exponents makes speeds all mutually irrational
+        coolHue = Wave(Δphase:  pow(0.0030, 0.99)),  // exponents make speeds all mutually irrational
         coolSat = Wave(Δphase:  pow(0.0070, 0.99), phase: -0.25),
         medR    = Wave(Δphase:  pow(0.0014, 0.99), range: -0.1...0.5),
         medG    = Wave(Δphase: -pow(0.0025, 0.99), range: -0.1...0.5),
