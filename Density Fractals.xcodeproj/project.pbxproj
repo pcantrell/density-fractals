@@ -20,6 +20,7 @@
 		DA5948E82ACFD89C000C477E /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948E72ACFD89C000C477E /* VideoEncoder.swift */; };
 		DA5948EB2AD1F5C3000C477E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA5948EA2AD1F5C3000C477E /* IOKit.framework */; };
 		DA5948ED2AD3C192000C477E /* Sharpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948EC2AD3C192000C477E /* Sharpen.swift */; };
+		DA5FB3862AD4D8CC00DA7D53 /* Alloy in Frameworks */ = {isa = PBXBuildFile; productRef = DA5FB3852AD4D8CC00DA7D53 /* Alloy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA5FB3862AD4D8CC00DA7D53 /* Alloy in Frameworks */,
 				DA5948EB2AD1F5C3000C477E /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -115,12 +117,12 @@
 				DA4BE5AE2AC91F7F00AE25A5 /* MetalFractalRenderer.swift */,
 				DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */,
 				DA5948E72ACFD89C000C477E /* VideoEncoder.swift */,
+				DA5948EC2AD3C192000C477E /* Sharpen.swift */,
 				DA5948E52ACF8700000C477E /* Util.swift */,
 				DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */,
 				DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */,
 				DA4BE5512AC6664F00AE25A5 /* Density_Fractals.entitlements */,
 				DA4BE54E2AC6664F00AE25A5 /* Preview Content */,
-				DA5948EC2AD3C192000C477E /* Sharpen.swift */,
 			);
 			path = "Density Fractals";
 			sourceTree = "<group>";
@@ -174,6 +176,9 @@
 			dependencies = (
 			);
 			name = "Density Fractals";
+			packageProductDependencies = (
+				DA5FB3852AD4D8CC00DA7D53 /* Alloy */,
+			);
 			productName = "Density Fractals";
 			productReference = DA4BE5452AC6664E00AE25A5 /* Density Fractals.app */;
 			productType = "com.apple.product-type.application";
@@ -247,6 +252,9 @@
 				Base,
 			);
 			mainGroup = DA4BE53C2AC6664E00AE25A5;
+			packageReferences = (
+				DA5FB3842AD4D8CC00DA7D53 /* XCRemoteSwiftPackageReference "Alloy" */,
+			);
 			productRefGroup = DA4BE5462AC6664E00AE25A5 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -623,6 +631,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		DA5FB3842AD4D8CC00DA7D53 /* XCRemoteSwiftPackageReference "Alloy" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/s1ddok/Alloy";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.18.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DA5FB3852AD4D8CC00DA7D53 /* Alloy */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DA5FB3842AD4D8CC00DA7D53 /* XCRemoteSwiftPackageReference "Alloy" */;
+			productName = Alloy;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DA4BE53D2AC6664E00AE25A5 /* Project object */;
 }

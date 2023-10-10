@@ -8,6 +8,7 @@
 import Foundation
 import Metal
 import MetalKit
+import Alloy
 import SwiftUI
 import IOKit.pwr_mgt
 import MetalPerformanceShaders
@@ -105,9 +106,8 @@ actor MetalFractalRenderer {
         hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.2...0.7)
     private var maxDensitySmoothing = GaussianMedian(windowSize: 9, sigma: 1.6)
 
-    private let gpu: any MTLDevice
+    private let metal: MTLContext
     private var lastCompletedDensityBuf: (any MTLBuffer)?
-    private let cmdQueue: any MTLCommandQueue
     private let renderOrbitPipelineState: any MTLComputePipelineState
     private let maxDensityPipelineState: any MTLComputePipelineState
     private let totalDensityPipelineState: any MTLComputePipelineState
@@ -131,25 +131,18 @@ actor MetalFractalRenderer {
             medium: simd_float3.zero,
             hot:    simd_float3.zero)
 
-        gpu = MTLCreateSystemDefaultDevice()!
-        let gpuLibrary = gpu.makeDefaultLibrary()!
+        metal = try! MTLContext(device: MTLCreateSystemDefaultDevice()!)
+        let metalLib = try! metal.library(for: .main)
 
-        renderOrbitPipelineState = try! gpu.makeComputePipelineState(function:
-            gpuLibrary.makeFunction(name: "renderOrbit")!)
-
-        maxDensityPipelineState = try! gpu.makeComputePipelineState(function:
-            gpuLibrary.makeFunction(name: "maxDensity")!)
-
-        totalDensityPipelineState = try! gpu.makeComputePipelineState(function:
-            gpuLibrary.makeFunction(name: "totalDensity")!)
+        renderOrbitPipelineState = try! metalLib.computePipelineState(function: "renderOrbit")
+        maxDensityPipelineState = try! metalLib.computePipelineState(function: "maxDensity")
+        totalDensityPipelineState = try! metalLib.computePipelineState(function: "totalDensity")
 
         let renderSquareDescriptor = MTLRenderPipelineDescriptor()
-        renderSquareDescriptor.vertexFunction = gpuLibrary.makeFunction(name: "densityVertex")!
-        renderSquareDescriptor.fragmentFunction = gpuLibrary.makeFunction(name: "densityFragment")!
+        renderSquareDescriptor.vertexFunction = metalLib.makeFunction(name: "densityVertex")!
+        renderSquareDescriptor.fragmentFunction = metalLib.makeFunction(name: "densityFragment")!
         renderSquareDescriptor.colorAttachments[0].pixelFormat = pixelFormat
-        renderSquarePipelineState = try! gpu.makeRenderPipelineState(descriptor: renderSquareDescriptor)
-
-        cmdQueue = gpu.makeCommandQueue()!
+        renderSquarePipelineState = try! metal.renderPipelineState(descriptor: renderSquareDescriptor)
 
         let squareVertices = [
             RenderVertex(position: SIMD2(0, 0)),
@@ -157,10 +150,7 @@ actor MetalFractalRenderer {
             RenderVertex(position: SIMD2(1, 0)),
             RenderVertex(position: SIMD2(1, 1)),
         ]
-        squareVertexBuf = gpu.makeBuffer(
-            bytes: squareVertices,
-            length: squareVertices.count * MemoryLayout.stride(ofValue: squareVertices[0]),
-            options: .cpuCacheModeWriteCombined)!
+        squareVertexBuf = try! metal.buffer(with: squareVertices, options: .cpuCacheModeWriteCombined)
     }
 
     // Render a batch of points, returning count of actual points rendered
@@ -178,30 +168,21 @@ actor MetalFractalRenderer {
             }
         }
 
-        let cmdBuffer = cmdQueue.makeCommandBuffer()!
-        let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
-        cmdEncoder.setComputePipelineState(renderOrbitPipelineState)
-
-        var params = FractalShaderParams(
-            rotation: Float(rotation),
-            thetaOffset: Float(thetaOffset),
-            gridSize: Int32(size),
-            pointBatchPerThread: Int32(pointBatchPerThread),
-            gpuThreadCount: Int32(gpuThreadCount),
-            randSeed: .random(in: .fullRange))
-        cmdEncoder.setBytes(&params, length: MemoryLayout.size(ofValue: params), index: 0)
-
-        cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
-
-        cmdEncoder.dispatchThreads(
-            MTLSize(width: gpuThreadCount, height: 1, depth: 1),
-            threadsPerThreadgroup: MTLSize(
-                width: min(gpuThreadCount, renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
-                height: 1, depth: 1))
-
-        cmdEncoder.endEncoding()
-        cmdBuffer.commit()
-        cmdBuffer.waitUntilCompleted()
+        try! metal.scheduleAndWait { cmdBuffer in
+            cmdBuffer.compute { cmdEncoder in
+                cmdEncoder.setValue(
+                    FractalShaderParams(
+                        rotation: Float(rotation),
+                        thetaOffset: Float(thetaOffset),
+                        gridSize: Int32(size),
+                        pointBatchPerThread: Int32(pointBatchPerThread),
+                        gpuThreadCount: Int32(gpuThreadCount),
+                        randSeed: .random(in: .fullRange)),
+                    at: 0)
+                cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
+                cmdEncoder.dispatch1d(state: renderOrbitPipelineState, exactly: gpuThreadCount)
+            }
+        }
 
         return pointBatchSize
     }
@@ -227,31 +208,19 @@ actor MetalFractalRenderer {
             }
         }
 
-        let cmdBuffer = cmdQueue.makeCommandBuffer()!
-        let cmdEncoder = cmdBuffer.makeComputeCommandEncoder()!
-        cmdEncoder.setComputePipelineState(pipelineState)
-
-        var size = self.size
-        cmdEncoder.setBytes(&size, length: MemoryLayout.size(ofValue: size), index: 0)
-
-        cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
-
         let chunkCount = 1000
-        let resultBuf = gpu.makeBuffer(length: MemoryLayout<Result>.stride * chunkCount)!
-        cmdEncoder.setBuffer(resultBuf, offset: 0, index: 2)
+        let resultBuf = try! metal.buffer(for: Result.self, count: chunkCount, options: [])
 
-        var chunkSize = (Int(size * size) + chunkCount - 1) / chunkCount
-        cmdEncoder.setBytes(&chunkSize, length: MemoryLayout.size(ofValue: chunkSize), index: 3)
-
-        cmdEncoder.dispatchThreads(
-            MTLSize(width: chunkCount, height: 1, depth: 1),
-            threadsPerThreadgroup: MTLSize(
-                width: min(Int(ceil(sqrt(Float(chunkCount)))), renderOrbitPipelineState.maxTotalThreadsPerThreadgroup),
-                height: 1, depth: 1))
-
-        cmdEncoder.endEncoding()
-        cmdBuffer.commit()
-        cmdBuffer.waitUntilCompleted()
+        try! metal.scheduleAndWait { cmdBuffer in
+            cmdBuffer.compute { cmdEncoder in
+                cmdEncoder.setValue(size, at: 0)
+                cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
+                cmdEncoder.setBuffer(resultBuf, offset: 0, index: 2)
+                let chunkSize = (Int(size * size) + chunkCount - 1) / chunkCount
+                cmdEncoder.setValue(chunkSize, at: 3)
+                cmdEncoder.dispatch1d(state: pipelineState, exactly: chunkCount)
+            }
+        }
 
         var result: [Result] = []
         resultBuf.contents().withMemoryRebound(to: Result.self, capacity: 1) { data in
@@ -277,10 +246,12 @@ actor MetalFractalRenderer {
         copyback: MTLTexture? = nil,  // to make pixels available to CPU
         awaitCompletion: Bool = false
     ) async -> DensityStats {
+        let gridPixelCount = pow(Float(size), 2)
         let maxDensity = computeMaxDensity(in: densityBuf)
         let totalDensity = computeTotalDensity(of: densityBuf)
+        let totalDensityScaled = Float(totalDensity) / gridPixelCount * 42
         maxDensitySmoothing.append(Double(maxDensity))
-        var maxDensitySmoothed = Float(ceil(maxDensitySmoothing.average()))
+        let maxDensitySmoothed = Float(ceil(maxDensitySmoothing.average()))
 
         // Create intermediate texture for rendering before sharpening
         let descriptor = descriptor.copy() as! MTLRenderPassDescriptor
@@ -292,44 +263,38 @@ actor MetalFractalRenderer {
             mipmapped: false)
         textureDescriptor.usage = [.shaderRead, .shaderWrite, .renderTarget]
         textureDescriptor.storageMode = .managed
-        let rawFractalTexture = gpu.makeTexture(descriptor: textureDescriptor)!
+        let rawFractalTexture = try! metal.texture(descriptor: textureDescriptor)
         descriptor.colorAttachments[0].texture = rawFractalTexture
 
-        // Render fractal
-        let cmdBuffer = cmdQueue.makeCommandBuffer()!
-        let cmdEncoder = cmdBuffer.makeRenderCommandEncoder(descriptor: descriptor)!
-        cmdEncoder.setRenderPipelineState(renderSquarePipelineState)
-        cmdEncoder.setVertexBuffer(squareVertexBuf, offset: 0, index: 0)
-        cmdEncoder.setFragmentBuffer(densityBuf, offset: 0, index: 0)
-        var size = size
-        cmdEncoder.setFragmentBytes(&size, length: MemoryLayout.size(ofValue: size), index: 1)
-        let gridPixelCount = pow(Float(size), 2)
-        var totalDensityScaled = Float(totalDensity) / gridPixelCount * 42
-        cmdEncoder.setFragmentBytes(&maxDensitySmoothed, length: MemoryLayout.size(ofValue: maxDensitySmoothed), index: 2)
-        cmdEncoder.setFragmentBytes(&totalDensityScaled, length: MemoryLayout.size(ofValue: totalDensityScaled), index: 3)
-        cmdEncoder.setFragmentBytes(&colorScheme, length: MemoryLayout.size(ofValue: colorScheme), index: 4)
-        cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        cmdEncoder.endEncoding()
+        try! metal.schedule(wait: awaitCompletion) { cmdBuffer in
+            // Render fractal
+            cmdBuffer.render(descriptor: descriptor) { cmdEncoder in
+                cmdEncoder.setRenderPipelineState(renderSquarePipelineState)
+                cmdEncoder.setVertexBuffer(squareVertexBuf, offset: 0, index: 0)
+                cmdEncoder.setFragmentBuffer(densityBuf, offset: 0, index: 0)
+                cmdEncoder.setFragmentValue(size, at: 1)
+                cmdEncoder.setFragmentValue(maxDensitySmoothed, at: 2)
+                cmdEncoder.setFragmentValue(totalDensityScaled, at: 3)
+                cmdEncoder.setFragmentValue(colorScheme, at: 4)
+                cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+            }
 
-        // Sharpen image
-        ConvolutionKernel.sharpen(amount: 0.7, sigma: Float(size) * 0.0075)
-            .makeMPSKernel(device: gpu)
-            .encode(
-                commandBuffer: cmdBuffer,
-                sourceTexture: rawFractalTexture,
-                destinationTexture: finalOutputTexture)
+            // Sharpen image
+            ConvolutionKernel.sharpen(amount: 0.7, sigma: Float(size) * 0.008)
+                .makeMPSKernel(device: metal.device)
+                .encode(
+                    commandBuffer: cmdBuffer,
+                    sourceTexture: rawFractalTexture,
+                    destinationTexture: finalOutputTexture)
 
-        // Make pixels accessible to CPU if needed
-        if let copyback = copyback {
-            let copybackEncoder = cmdBuffer.makeBlitCommandEncoder()!
-            copybackEncoder.synchronize(resource: copyback)
-            copybackEncoder.endEncoding()
+            // Make pixels accessible to CPU if needed (for video output, but not for window update)
+            if let copyback = copyback {
+                cmdBuffer.blit { copybackEncoder in
+                    copybackEncoder.synchronize(resource: copyback)
+                }
+            }
         }
 
-        cmdBuffer.commit()
-        if awaitCompletion {
-            cmdBuffer.waitUntilCompleted()
-        }
         return DensityStats(maxDensity: maxDensity, totalDensity: totalDensity)
     }
 
@@ -417,7 +382,7 @@ actor MetalFractalRenderer {
             }
         }
 
-        let densityBuf = gpu.makeBuffer(length: size * size * MemoryLayout<DensityCount>.stride, options: .storageModePrivate)!
+        let densityBuf = try! metal.buffer(for: DensityCount.self, count: size * size, options: .storageModePrivate)
 
         var pointsToRender = samplePoints
         while pointsToRender > 0 {
@@ -438,8 +403,8 @@ actor MetalFractalRenderer {
             mipmapped: false)
         textureDescriptor.usage = [.shaderWrite, .renderTarget]
         textureDescriptor.storageMode = .managed
-        let outputTexture = gpu.makeTexture(descriptor: textureDescriptor)!
-        
+        let outputTexture = try! metal.texture(descriptor: textureDescriptor)
+
         let renderPassDescriptor = MTLRenderPassDescriptor()
         renderPassDescriptor.colorAttachments[0].texture = outputTexture
         renderPassDescriptor.colorAttachments[0].loadAction = .clear
@@ -514,5 +479,13 @@ struct GaussianMedian {
             totalWeight += weight
         }
         return total / totalWeight
+    }
+}
+
+public extension MTLContext {
+    func schedule(wait: Bool, _ bufferEncodings: (MTLCommandBuffer) throws -> Void) throws {
+        return wait
+            ? try scheduleAndWait(bufferEncodings)
+            : try schedule(bufferEncodings)
     }
 }
