@@ -56,8 +56,6 @@ actor MetalFractalRenderer {
     private let gpuThreadCount = 10_000          // Number of GPU threads specified in Metal dispatch call
     private let chunkCount = 9                   // Density buffer divided into this many subregions for cache coherence
 
-    private let pixelFormat = MTLPixelFormat.bgra8Unorm
-
     // Allows a single listener to receive notifcations whenever a new image is rendered
     private var frameRenderCallback: @MainActor @Sendable () -> Void = { }
 
@@ -81,7 +79,7 @@ actor MetalFractalRenderer {
         let renderSquareDescriptor = MTLRenderPipelineDescriptor()
         renderSquareDescriptor.vertexFunction = metalLib.makeFunction(name: "densityVertex")!
         renderSquareDescriptor.fragmentFunction = metalLib.makeFunction(name: "densityFragment")!
-        renderSquareDescriptor.colorAttachments[0].pixelFormat = pixelFormat
+        renderSquareDescriptor.colorAttachments[0].pixelFormat = .rgba16Float
         renderSquarePipelineState = try! metal.renderPipelineState(descriptor: renderSquareDescriptor)
 
         let squareVertices = [
@@ -237,12 +235,13 @@ actor MetalFractalRenderer {
         let descriptor = descriptor.copy() as! MTLRenderPassDescriptor
         let finalOutputTexture = descriptor.colorAttachments[0].texture!
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat,
+            pixelFormat: .rgba16Float,
             width: size,
             height: size,
             mipmapped: false)
         textureDescriptor.usage = [.shaderRead, .shaderWrite, .renderTarget]
         textureDescriptor.storageMode = .managed
+
         let rawFractalTexture = try! metal.texture(descriptor: textureDescriptor)
         descriptor.colorAttachments[0].texture = rawFractalTexture
 
@@ -260,12 +259,24 @@ actor MetalFractalRenderer {
             }
 
             // Sharpen image
-            ConvolutionKernel.sharpen(amount: 0.7, sigma: Float(size) * 0.008)
-                .makeMPSKernel(device: metal.device)
-                .encode(
-                    commandBuffer: cmdBuffer,
-                    sourceTexture: rawFractalTexture,
-                    destinationTexture: finalOutputTexture)
+            let sharpenRadius = Float(size) * 0.008
+            let sharpenAmount: Float = 0.7
+
+            let blurredTexture = try! metal.texture(descriptor: textureDescriptor)
+            let blur = MPSImageGaussianBlur(device: metal.device, sigma: sharpenRadius)
+            blur.edgeMode = .clamp
+            blur.encode(
+                commandBuffer: cmdBuffer,
+                sourceTexture: rawFractalTexture,
+                destinationTexture: blurredTexture)
+            let diff = MPSImageSubtract()
+            diff.primaryScale = 1 + sharpenAmount
+            diff.secondaryScale = sharpenAmount
+            diff.encode(
+                commandBuffer: cmdBuffer,
+                primaryTexture: rawFractalTexture,
+                secondaryTexture: blurredTexture,
+                destinationTexture: finalOutputTexture)
 
             // Make pixels accessible to CPU if needed (for video output, but not for window update)
             if let copyback = copyback {
@@ -359,7 +370,7 @@ actor MetalFractalRenderer {
     private func writeVideoFrame(from densityBuf: any MTLBuffer, to encoder: VideoEncoder) async -> DensityStats {
         // Many portions adapted from https://github.com/warrenm/MetalOfflineRecording/blob/b4ebaddc37950fd5d835ed60530e7f1905e6d293/MetalOfflineRecording/Renderer.swift
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: pixelFormat,
+            pixelFormat: .bgra8Unorm,
             width: size,
             height: size,
             mipmapped: false)
