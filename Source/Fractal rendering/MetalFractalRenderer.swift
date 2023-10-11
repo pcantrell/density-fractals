@@ -13,14 +13,22 @@ import MetalPerformanceShaders
 
 private let logTiming = true, logStats = false
 
+/// Manages the rendering of a density fractal on the GPU. This is a stateful actor: it hangs on to
+/// a current set of shape and color parameters, and a most recently rendered image. Rendering or
+/// animating updates its state; to render mutliple images independently, use multiple instances.
+///
 actor MetalFractalRenderer {
+    // The size in pixels of the output image
     let size: Int
 
+    // Transform parameters, which determine the current shape of the fractals
     var rotation: Double
     var thetaOffset: Double
 
+    // The colorization parameters, which control the int density → RGB color mapping
     var colorScheme: FractalColorScheme
 
+    // Color parameter change over time
     private var
         coolHue = Wave(Δphase:  pow(0.0030, 0.99)),  // exponents make speeds all mutually irrational
         coolSat = Wave(Δphase:  pow(0.0070, 0.99), phase: -0.25),
@@ -29,8 +37,12 @@ actor MetalFractalRenderer {
         medB    = Wave(Δphase:  pow(0.0036, 0.99), range: -0.1...0.5),
         hotHue  = Wave(Δphase: -pow(0.0053, 0.99)),
         hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.2...0.7)
+
+    // Coloring depends on max density, which can vary both suddenly with small param changes
+    // and randomly across multiple renders. Smoothing max density prevents flickering.
     private var maxDensitySmoothing = GaussianMedian(windowSize: 9, sigma: 1.6)
 
+    // Preallocated metal resources
     private let metal: MTLContext
     private var lastCompletedDensityBuf: (any MTLBuffer)?
     private let renderOrbitPipelineState: any MTLComputePipelineState
@@ -39,11 +51,13 @@ actor MetalFractalRenderer {
     private let renderSquarePipelineState: any MTLRenderPipelineState
     private let squareVertexBuf: any MTLBuffer
 
+    // Internal tuning params
     private let maxPointBatchPerThread = 10_000
     private let gpuThreadCount = 10_000
 
     private let pixelFormat = MTLPixelFormat.bgra8Unorm
 
+    // Allows a single listener to receive notifcations whenever a new image is rendered
     private var frameRenderCallback: @MainActor @Sendable () -> Void = { }
 
     init(size: Int, rotation: Double = 0, thetaOffset: Double = 0) {
@@ -78,7 +92,31 @@ actor MetalFractalRenderer {
         squareVertexBuf = try! metal.buffer(with: squareVertices, options: .cpuCacheModeWriteCombined)
     }
 
-    // Render a batch of points, returning count of actual points rendered
+    // MARK: Fractal computation
+
+    func renderImage(samplePoints: Int) async -> any MTLBuffer {
+        let timer = ContinuousClock.now
+        defer {
+            if logTiming {
+                print("Rendered image in \(ContinuousClock.now - timer)")
+            }
+        }
+
+        let densityBuf = try! metal.buffer(for: DensityCount.self, count: size * size, options: .storageModePrivate)
+
+        var pointsToRender = samplePoints
+        while pointsToRender > 0 {
+            pointsToRender -= renderOrbit(to: densityBuf, maxPoints: pointsToRender)
+            await Task.yield()  // In case anybody's showing updates during rendering
+        }
+
+        lastCompletedDensityBuf = densityBuf
+        return densityBuf
+    }
+
+    /// Render a batch of points, updating hits counts in `densityBuf` and returning count of
+    /// actual points rendered.
+    ///
     private func renderOrbit(to densityBuf: any MTLBuffer, maxPoints: Int = .max) -> Int {
         let idealPointBatchSize = min(maxPointBatchPerThread * gpuThreadCount, maxPoints)
         let pointBatchPerThread = (idealPointBatchSize + gpuThreadCount - 1) / gpuThreadCount
@@ -156,6 +194,8 @@ actor MetalFractalRenderer {
         return result
     }
 
+    // MARK: Drawing
+
     func drawLastCompleted(descriptor: MTLRenderPassDescriptor) async -> Bool {
         guard let densityBuf = lastCompletedDensityBuf else {
             return false
@@ -222,6 +262,8 @@ actor MetalFractalRenderer {
 
         return DensityStats(maxDensity: maxDensity, totalDensity: totalDensity)
     }
+
+    // MARK: Animation
 
     func renderAnimation(
         startTime: TimeInterval = 0,
@@ -299,26 +341,6 @@ actor MetalFractalRenderer {
         colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
     }
 
-    func renderImage(samplePoints: Int) async -> any MTLBuffer {
-        let timer = ContinuousClock.now
-        defer {
-            if logTiming {
-                print("Rendered image in \(ContinuousClock.now - timer)")
-            }
-        }
-
-        let densityBuf = try! metal.buffer(for: DensityCount.self, count: size * size, options: .storageModePrivate)
-
-        var pointsToRender = samplePoints
-        while pointsToRender > 0 {
-            pointsToRender -= renderOrbit(to: densityBuf, maxPoints: pointsToRender)
-            await Task.yield()  // In case anybody's waiting to update completed image
-        }
-
-        lastCompletedDensityBuf = densityBuf
-        return densityBuf
-    }
-
     private func writeVideoFrame(from densityBuf: any MTLBuffer, to encoder: VideoEncoder) async -> DensityStats {
         // Many portions adapted from https://github.com/warrenm/MetalOfflineRecording/blob/b4ebaddc37950fd5d835ed60530e7f1905e6d293/MetalOfflineRecording/Renderer.swift
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -372,6 +394,8 @@ private struct Wave {
     }
 }
 
+/// A hybrid of mean and median: computes the gaussian-weighted average of values in sorted order.
+///
 private struct GaussianMedian {
     private let windowSize: Int
     private let sigma: Double

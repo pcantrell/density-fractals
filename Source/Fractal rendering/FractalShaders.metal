@@ -12,14 +12,21 @@ using namespace metal;
 
 // MARK: Fractal rendering
 
-void nextRand(thread uint64_t& rand, thread uint64_t& randBits) {
-    rand += 0x9e3779b97f4a7c15;
-    uint64_t z = rand;
+/// Splitmix, a very fast pseudorandom number algorithm (https://en.wikipedia.org/wiki/Xorshift)
+/// `randState` is the RNG’s ongoing internal state; `result` is the next 64-bit random number.
+///
+uint64_t nextRand(thread uint64_t& randState) {
+    randState += 0x9e3779b97f4a7c15;
+    uint64_t z = randState;
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
     z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-    randBits = z ^ (z >> 31);
+    return z ^ (z >> 31);
 }
 
+/// Repeatedly selects one of two transforms at random, applies that transform to a point in space,
+/// and updates the count in the `density` grid as the point moves. The fractal emerges from the
+/// distribution of those counts in the density grid.
+///
 kernel void renderOrbit(
     constant FractalShaderParams& params,
     device uint* density,
@@ -27,6 +34,7 @@ kernel void renderOrbit(
 ) {
     const float enlargement = 1.1;
 
+    // Precalculate matrix for rotation transform
     float sizef = params.gridSize;
     float2x2 rotation = {
         { cos(params.rotation), sin(params.rotation) },
@@ -40,14 +48,18 @@ kernel void renderOrbit(
     int randBitCount = 0;
 
     for (int n = 0; n < params.pointBatchPerThread; n++) {
+        // Use all 64 bits of randomness from the previous random number before generating another
         if (randBitCount <= 0) {
-            nextRand(rand, randBits);
+            randBits = nextRand(rand);
             randBitCount = 64;
         }
 
+        // Randomly select a transform
         if ((randBits & 1) == 0) {
+            // Transform 0: rotation
             point *= rotation;
         } else {
+            // Transform 1: polar → rectangular coords
             float r = point.x * 0.5 + 0.5;
             float theta = point.y * M_PI_F + params.thetaOffset;
             point = {
@@ -59,6 +71,7 @@ kernel void renderOrbit(
         randBits >>= 1;
         randBitCount--;
 
+        // Increment appropriate count in density grid
         float2 pixel = (point * enlargement / 2 + 0.5) * sizef;
         if (pixel.x > 0 && pixel.x < sizef && pixel.y > 0 && pixel.y < sizef) {
             density[
@@ -75,6 +88,10 @@ struct ChunkRange {
     int start, end;
 };
 
+/// Helper for max and total density calculations, which both use a map-reduce approach of breaking
+/// the computation into chunks, computing the result for each chunk on the GPU, then letting the
+/// CPU aggregate all the chunk results.
+///
 ChunkRange computeChunkRange(
     int gridSize,
     int chunkSize,
@@ -85,6 +102,8 @@ ChunkRange computeChunkRange(
     return { start, end };
 }
 
+/// Computes the max density in a subchunk of the `density` grid.
+///
 kernel void maxDensity(
     constant int& gridSize,
     device uint* density,
@@ -104,6 +123,8 @@ kernel void maxDensity(
     result[chunkIndex] = max;
 }
 
+/// Computes the sum of all densities in a subchunk of the `density` grid.
+///
 kernel void totalDensity(
     constant int& gridSize,
     device uint* density,
@@ -144,6 +165,8 @@ vertex RasterizerData densityVertex(
     return out;
 }
 
+/// Converts raw integer values from the `density` grid into pixel colors.
+///
 fragment float4 densityFragment(
     RasterizerData in [[stage_in]],
     device uint* density,
