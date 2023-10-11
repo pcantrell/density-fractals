@@ -16,11 +16,13 @@
 		DA4BE5672AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */; };
 		DA4BE5AF2AC91F7F00AE25A5 /* MetalFractalRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5AE2AC91F7F00AE25A5 /* MetalFractalRenderer.swift */; };
 		DA4BE5B12AC9204600AE25A5 /* FractalShaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */; };
-		DA5948E62ACF8700000C477E /* Util.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948E52ACF8700000C477E /* Util.swift */; };
+		DA5948E62ACF8700000C477E /* Stdlib+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948E52ACF8700000C477E /* Stdlib+Utils.swift */; };
 		DA5948E82ACFD89C000C477E /* VideoEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948E72ACFD89C000C477E /* VideoEncoder.swift */; };
 		DA5948EB2AD1F5C3000C477E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA5948EA2AD1F5C3000C477E /* IOKit.framework */; };
 		DA5948ED2AD3C192000C477E /* Sharpen.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5948EC2AD3C192000C477E /* Sharpen.swift */; };
 		DA5FB3862AD4D8CC00DA7D53 /* Alloy in Frameworks */ = {isa = PBXBuildFile; productRef = DA5FB3852AD4D8CC00DA7D53 /* Alloy */; };
+		DA5FB3882AD5B03600DA7D53 /* Alloy+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5FB3872AD5B03600DA7D53 /* Alloy+Utils.swift */; };
+		DA5FB38A2AD5B07800DA7D53 /* CoreVideo+Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA5FB3892AD5B07800DA7D53 /* CoreVideo+Utils.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,10 +56,12 @@
 		DA4BE5662AC6665000AE25A5 /* Density_FractalsUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Density_FractalsUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		DA4BE5AE2AC91F7F00AE25A5 /* MetalFractalRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalFractalRenderer.swift; sourceTree = "<group>"; };
 		DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = FractalShaders.metal; sourceTree = "<group>"; };
-		DA5948E52ACF8700000C477E /* Util.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Util.swift; sourceTree = "<group>"; };
+		DA5948E52ACF8700000C477E /* Stdlib+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stdlib+Utils.swift"; sourceTree = "<group>"; };
 		DA5948E72ACFD89C000C477E /* VideoEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoEncoder.swift; sourceTree = "<group>"; };
 		DA5948EA2AD1F5C3000C477E /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		DA5948EC2AD3C192000C477E /* Sharpen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sharpen.swift; sourceTree = "<group>"; };
+		DA5FB3872AD5B03600DA7D53 /* Alloy+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Alloy+Utils.swift"; sourceTree = "<group>"; };
+		DA5FB3892AD5B07800DA7D53 /* CoreVideo+Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreVideo+Utils.swift"; sourceTree = "<group>"; };
 		DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Density Fractals-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -115,14 +119,16 @@
 				DA4BE5482AC6664E00AE25A5 /* Density_FractalsApp.swift */,
 				DA4BE54A2AC6664E00AE25A5 /* ContentView.swift */,
 				DA4BE5AE2AC91F7F00AE25A5 /* MetalFractalRenderer.swift */,
+				DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */,
 				DA4BE5B02AC9204600AE25A5 /* FractalShaders.metal */,
 				DA5948E72ACFD89C000C477E /* VideoEncoder.swift */,
 				DA5948EC2AD3C192000C477E /* Sharpen.swift */,
-				DA5948E52ACF8700000C477E /* Util.swift */,
-				DAD7EE9B2ACB66BD00FB7BEC /* Density Fractals-Bridging-Header.h */,
+				DA5948E52ACF8700000C477E /* Stdlib+Utils.swift */,
+				DA5FB3872AD5B03600DA7D53 /* Alloy+Utils.swift */,
 				DA4BE54C2AC6664F00AE25A5 /* Assets.xcassets */,
 				DA4BE5512AC6664F00AE25A5 /* Density_Fractals.entitlements */,
 				DA4BE54E2AC6664F00AE25A5 /* Preview Content */,
+				DA5FB3892AD5B07800DA7D53 /* CoreVideo+Utils.swift */,
 			);
 			path = "Density Fractals";
 			sourceTree = "<group>";
@@ -298,8 +304,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA4BE5B12AC9204600AE25A5 /* FractalShaders.metal in Sources */,
+				DA5FB3882AD5B03600DA7D53 /* Alloy+Utils.swift in Sources */,
 				DA4BE54B2AC6664E00AE25A5 /* ContentView.swift in Sources */,
-				DA5948E62ACF8700000C477E /* Util.swift in Sources */,
+				DA5FB38A2AD5B07800DA7D53 /* CoreVideo+Utils.swift in Sources */,
+				DA5948E62ACF8700000C477E /* Stdlib+Utils.swift in Sources */,
 				DA4BE5AF2AC91F7F00AE25A5 /* MetalFractalRenderer.swift in Sources */,
 				DA5948ED2AD3C192000C477E /* Sharpen.swift in Sources */,
 				DA5948E82ACFD89C000C477E /* VideoEncoder.swift in Sources */,

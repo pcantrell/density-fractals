@@ -24,14 +24,14 @@ struct ContentView: View {
         let renderer = renderer
         Task.detached(priority: .medium) {
             await renderer.renderAnimation(
-                duration: 160,
+                startTime: 20,
+                duration: 1,
                 speed: 3,
                 apogeeSlowdown: 3,
                 frameRate: 30,
-                pointsPerFrame: 1_000_000_000,
+                pointsPerFrame: 1_000_000,
                 ΔrotationPerSecond: 0.1 * golden,
-                ΔthetaOffsetPerSecond: 0.1
-            )
+                ΔthetaOffsetPerSecond: 0.1)
         }
     }
 
@@ -45,20 +45,3 @@ struct ContentView: View {
 #Preview {
     return ContentView(timerEnabled: false)
 }
-
-
-extension Sequence {
-    func reduceIntoFirst(
-        _ updateAccumulatingResult: (inout Element, Self.Element) throws -> ()
-    ) rethrows -> Element? {
-        var iter = makeIterator()
-        guard var result = iter.next() else {
-            return nil
-        }
-        for elem in dropFirst() {
-            try updateAccumulatingResult(&result, elem)
-        }
-        return result
-    }
-}
-

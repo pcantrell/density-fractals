@@ -126,11 +126,11 @@ struct RasterizerData {
 
 vertex RasterizerData densityVertex(
     uint vertexID [[vertex_id]],
-    constant RenderVertex *vertices
+    constant float2 *vertices
 ) {
     RasterizerData out;
 
-    vector_float2 position = vertices[vertexID].position;
+    float2 position = vertices[vertexID];
 
     out.position = vector_float4(0.0, 0.0, 0.0, 1.0);
     out.position.xy = position * 2 - 1;

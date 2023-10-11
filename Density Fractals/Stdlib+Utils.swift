@@ -1,5 +1,5 @@
 //
-//  Util.swift
+//  Stdlib+Utils.swift
 //  Density Fractals
 //
 //  Created by Paul on 10/5/23.

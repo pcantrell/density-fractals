@@ -78,12 +78,12 @@ actor VideoEncoder {
         }
         
         var pixelBuffer: CVPixelBuffer? = nil
-        checkCVError(CVPixelBufferPoolCreatePixelBuffer(nil, pixelBufferPool, &pixelBuffer))
+        CVCheckError(CVPixelBufferPoolCreatePixelBuffer(nil, pixelBufferPool, &pixelBuffer))
         guard let pixelBuffer = pixelBuffer else {
             throw VideoEncoderError(message: "Could not get pixel buffer from asset writer input")
         }
         
-        checkCVError(CVPixelBufferLockBaseAddress(pixelBuffer, []))
+        CVCheckError(CVPixelBufferLockBaseAddress(pixelBuffer, []))
         let pixelBufferBytes = CVPixelBufferGetBaseAddress(pixelBuffer)!
         
         // Use the bytes per row value from the pixel buffer since its stride may be rounded up to be 16-byte aligned
@@ -98,7 +98,7 @@ actor VideoEncoder {
             throw VideoEncoderError(message: "assetWriterPixelBufferInput.append failed")
         }
 
-        checkCVError(CVPixelBufferUnlockBaseAddress(pixelBuffer, []))
+        CVCheckError(CVPixelBufferUnlockBaseAddress(pixelBuffer, []))
     }
 
     func end() async {
@@ -114,52 +114,3 @@ actor VideoEncoder {
 struct VideoEncoderError: Error {
     var message: String
 }
-
-func checkCVError(_ status: CVReturn, function: StaticString = #function, file: StaticString = #file, line: UInt = #line) {
-    if status != kCVReturnSuccess {
-        fatalError(
-            """
-            Core video error: \(cvStatusToString(status))
-                in \(function)
-                at \(file):\(line)
-            """
-        )
-    }
-}
-
-func cvStatusToString(_ status: CVReturn) -> String {
-    switch status {
-        case kCVReturnSuccess: "kCVReturnSuccess"
-
-        case kCVReturnFirst: "kCVReturnFirst"
-
-        case kCVReturnError: "kCVReturnError"
-        case kCVReturnInvalidArgument: "kCVReturnInvalidArgument"
-        case kCVReturnAllocationFailed: "kCVReturnAllocationFailed"
-        case kCVReturnUnsupported: "kCVReturnUnsupported"
-
-        // DisplayLink related errors
-        case kCVReturnInvalidDisplay: "kCVReturnInvalidDisplay"
-        case kCVReturnDisplayLinkAlreadyRunning: "kCVReturnDisplayLinkAlreadyRunning"
-        case kCVReturnDisplayLinkNotRunning: "kCVReturnDisplayLinkNotRunning"
-        case kCVReturnDisplayLinkCallbacksNotSet: "kCVReturnDisplayLinkCallbacksNotSet"
-
-        // Buffer related errors
-        case kCVReturnInvalidPixelFormat: "kCVReturnInvalidPixelFormat"
-        case kCVReturnInvalidSize: "kCVReturnInvalidSize"
-        case kCVReturnInvalidPixelBufferAttributes: "kCVReturnInvalidPixelBufferAttributes"
-        case kCVReturnPixelBufferNotOpenGLCompatible: "kCVReturnPixelBufferNotOpenGLCompatible"
-        case kCVReturnPixelBufferNotMetalCompatible: "kCVReturnPixelBufferNotMetalCompatible"
-
-        // Buffer Pool related errors
-        case kCVReturnWouldExceedAllocationThreshold: "kCVReturnWouldExceedAllocationThreshold"
-        case kCVReturnPoolAllocationFailed: "kCVReturnPoolAllocationFailed"
-        case kCVReturnInvalidPoolAttributes: "kCVReturnInvalidPoolAttributes"
-        case kCVReturnRetry: "kCVReturnRetry"
-
-        case kCVReturnLast: "kCVReturnLast"
-
-        default: "WTF (\(status))"
-    }
-}
-

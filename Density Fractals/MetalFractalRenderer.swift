@@ -145,10 +145,10 @@ actor MetalFractalRenderer {
         renderSquarePipelineState = try! metal.renderPipelineState(descriptor: renderSquareDescriptor)
 
         let squareVertices = [
-            RenderVertex(position: SIMD2(0, 0)),
-            RenderVertex(position: SIMD2(0, 1)),
-            RenderVertex(position: SIMD2(1, 0)),
-            RenderVertex(position: SIMD2(1, 1)),
+            vector_float2(0, 0),
+            vector_float2(0, 1),
+            vector_float2(1, 0),
+            vector_float2(1, 1),
         ]
         squareVertexBuf = try! metal.buffer(with: squareVertices, options: .cpuCacheModeWriteCombined)
     }
@@ -313,8 +313,7 @@ actor MetalFractalRenderer {
             kIOPMAssertionTypePreventSystemSleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
             "Rendering fractal" as CFString,
-            &assertionID
-        )
+            &assertionID)
         defer {
             IOPMAssertionRelease(assertionID)
         }
@@ -331,7 +330,8 @@ actor MetalFractalRenderer {
             let Δt = ΔtBase / (1 + apogeeSlowdown * (1 * pow((1 - cos(rotation)) / 2, 80)))
 
             if timeRendered >= 0 {
-                print("Rendering \(timeRendered) / \(duration) sec",
+                print(
+                    "Rendering \(timeRendered) / \(duration) sec",
                     "(\(Int(timeRendered / duration * 100))%)",
                     "t=\(startTime + timeRendered))...")
 
@@ -434,7 +434,7 @@ private func simdColor(r: Double, g: Double, b: Double) -> simd_float3 {
     return simd_float3(Float(r), Float(g), Float(b))
 }
 
-fileprivate struct Wave {
+private struct Wave {
     var Δphase: Double
     var phase: Double = 0
     var range: ClosedRange<Double> = 0...1
@@ -448,7 +448,7 @@ fileprivate struct Wave {
     }
 }
 
-struct GaussianMedian {
+private struct GaussianMedian {
     private let windowSize: Int
     private let sigma: Double
     private var recentValues: [Double] = []
@@ -479,13 +479,5 @@ struct GaussianMedian {
             totalWeight += weight
         }
         return total / totalWeight
-    }
-}
-
-public extension MTLContext {
-    func schedule(wait: Bool, _ bufferEncodings: (MTLCommandBuffer) throws -> Void) throws {
-        return wait
-            ? try scheduleAndWait(bufferEncodings)
-            : try schedule(bufferEncodings)
     }
 }

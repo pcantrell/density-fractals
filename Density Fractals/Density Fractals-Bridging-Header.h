@@ -4,10 +4,6 @@
 
 #include <simd/simd.h>
 
-struct RenderVertex {
-    vector_float2 position;
-};
-
 struct FractalShaderParams {
     float rotation;
     float thetaOffset;
