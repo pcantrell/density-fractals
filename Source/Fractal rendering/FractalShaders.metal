@@ -6,11 +6,19 @@
 //
 
 #include <metal_stdlib>
-#include "Density Fractals-Bridging-Header.h"
+#include "Metal-Bridging-Header.h"
 
 using namespace metal;
 
 // MARK: Fractal rendering
+
+void nextRand(thread uint64_t& rand, thread uint64_t& randBits) {
+    rand += 0x9e3779b97f4a7c15;
+    uint64_t z = rand;
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+    randBits = z ^ (z >> 31);
+}
 
 kernel void renderOrbit(
     constant FractalShaderParams& params,
@@ -33,11 +41,7 @@ kernel void renderOrbit(
 
     for (int n = 0; n < params.pointBatchPerThread; n++) {
         if (randBitCount <= 0) {
-            rand += 0x9e3779b97f4a7c15;
-            uint64_t z = rand;
-            z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-            z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-            randBits = z ^ (z >> 31);
+            nextRand(rand, randBits);
             randBitCount = 64;
         }
 
