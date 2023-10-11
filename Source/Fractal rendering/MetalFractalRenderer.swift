@@ -28,6 +28,10 @@ actor MetalFractalRenderer {
     // The colorization parameters, which control the int density → RGB color mapping
     var colorScheme: FractalColorScheme
 
+    // Rendering options
+    var sharpenRadius: Float = 0.01  // relative to size
+    var sharpenAmount: Float = 1.2
+
     // Color parameter change over time
     private var
         coolHue = Wave(Δphase:  pow(0.0030, 0.99)),  // exponents make speeds all mutually irrational
@@ -258,12 +262,8 @@ actor MetalFractalRenderer {
                 cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
             }
 
-            // Sharpen image
-            let sharpenRadius = Float(size) * 0.008
-            let sharpenAmount: Float = 0.7
-
             let blurredTexture = try! metal.texture(descriptor: textureDescriptor)
-            let blur = MPSImageGaussianBlur(device: metal.device, sigma: sharpenRadius)
+            let blur = MPSImageGaussianBlur(device: metal.device, sigma: sharpenRadius * Float(size))
             blur.edgeMode = .clamp
             blur.encode(
                 commandBuffer: cmdBuffer,
