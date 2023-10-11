@@ -316,10 +316,21 @@ actor MetalFractalRenderer {
 
         updateColorScheme(Δt: 0)  // initialize colors
 
+        var frameCount = 0
         var timeRendered: Double = -startTime
         let ΔtBase = speed / Double(frameRate)
 
+        let timer = ContinuousClock.now
+        defer {
+            if logTiming {
+                let elapsedTime = ContinuousClock.now - timer
+                print("Rendered video in \(elapsedTime) (average of \(elapsedTime / frameCount) / frame)")
+            }
+        }
+
         while timeRendered < duration {
+            let timer = ContinuousClock.now
+
             let Δt = ΔtBase / (1 + apogeeSlowdown * (1 * pow((1 - cos(rotation)) / 2, 80)))
 
             if timeRendered >= 0 {
@@ -342,6 +353,9 @@ actor MetalFractalRenderer {
                     print("             maxDensity: \(stats.maxDensity)")
                     print("          concentration: \(stats.concentration)")
                 }
+                if logTiming {
+                    print("Rendered frame in \(ContinuousClock.now - timer)")
+                }
                 if logStats || logTiming {
                     print()
                 }
@@ -353,6 +367,7 @@ actor MetalFractalRenderer {
             rotation += ΔrotationPerSecond * Δt
 
             timeRendered += 1 / Double(frameRate)
+            frameCount += 1
         }
 
         await encoder.end()
