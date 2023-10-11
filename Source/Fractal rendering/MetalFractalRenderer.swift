@@ -52,8 +52,9 @@ actor MetalFractalRenderer {
     private let squareVertexBuf: any MTLBuffer
 
     // Internal tuning params
-    private let maxPointBatchPerThread = 10_000
-    private let gpuThreadCount = 10_000
+    private let maxPointBatchPerThread = 10_000  // Max orbit points for a single run of GPU orbit computation function
+    private let gpuThreadCount = 10_000          // Number of GPU threads specified in Metal dispatch call
+    private let chunkCount = 9                   // Density buffer divided into this many subregions for cache coherence
 
     private let pixelFormat = MTLPixelFormat.bgra8Unorm
 
@@ -132,18 +133,32 @@ actor MetalFractalRenderer {
         }
 
         try! metal.scheduleAndWait { cmdBuffer in
-            cmdBuffer.compute { cmdEncoder in
-                cmdEncoder.setValue(
-                    FractalShaderParams(
-                        rotation: Float(rotation),
-                        thetaOffset: Float(thetaOffset),
-                        gridSize: Int32(size),
-                        pointBatchPerThread: Int32(pointBatchPerThread),
-                        gpuThreadCount: Int32(gpuThreadCount),
-                        randSeed: .random(in: .fullRange)),
-                    at: 0)
-                cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
-                cmdEncoder.dispatch1d(state: renderOrbitPipelineState, exactly: gpuThreadCount)
+            let randSeed: UInt = .random(in: .fullRange)
+
+            // The main performance bottleneck in rendering is neither the orbit computation nor the random number
+            // generation that drives it, but rather memory bandwidth. The innocent-looking `density[index]++`
+            // is a near-perfect cache-buster, because `index` jumps wildly over the entire array from point to point.
+            //
+            // To beat this bottleneck, we divide the density buffer into smaller chunks (`chunkCount` of them), and
+            // we _recalculate the same entire orbit_ sequentially for each chunk, each time ignoring all indices that
+            // don't fall within the current chunk. Surprisingly, this produces a ~3x net speedup!
+
+            for chunk in 0..<chunkCount {
+                cmdBuffer.compute { cmdEncoder in
+                    cmdEncoder.setValue(
+                        FractalShaderParams(
+                            rotation: Float(rotation),
+                            thetaOffset: Float(thetaOffset),
+                            gridSize: Int32(size),
+                            pointBatchPerThread: Int32(pointBatchPerThread),
+                            gpuThreadCount: Int32(gpuThreadCount),
+                            randSeed: randSeed,
+                            chunk: Int32(chunk),
+                            chunkCount: Int32(chunkCount)),
+                        at: 0)
+                    cmdEncoder.setBuffer(densityBuf, offset: 0, index: 1)
+                    cmdEncoder.dispatch1d(state: renderOrbitPipelineState, exactly: gpuThreadCount)
+                }
             }
         }
 

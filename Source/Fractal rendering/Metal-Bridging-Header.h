@@ -14,6 +14,8 @@ struct FractalShaderParams {
     int gpuThreadCount;
 
     unsigned long randSeed;
+
+    int chunk, chunkCount;
 };
 
 struct FractalColorScheme {

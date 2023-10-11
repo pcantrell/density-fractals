@@ -23,6 +23,21 @@ uint64_t nextRand(thread uint64_t& randState) {
     return z ^ (z >> 31);
 }
 
+constant int densityBatchCount = 3;
+constant int densityBatchCapacity = 10;
+
+void flushDensityBatch(
+    device uint* density,
+    thread/*group*/ int& densityBatchUsage,
+    thread/*group*/ int* densityBatch
+) {
+    for (int n = densityBatchUsage - 1; n >= 0; n--) {
+        density[densityBatch[n]]++;
+    }
+    densityBatchUsage = 0;
+}
+
+
 /// Repeatedly selects one of two transforms at random, applies that transform to a point in space,
 /// and updates the count in the `density` grid as the point moves. The fractal emerges from the
 /// distribution of those counts in the density grid.
@@ -30,7 +45,7 @@ uint64_t nextRand(thread uint64_t& randState) {
 kernel void renderOrbit(
     constant FractalShaderParams& params,
     device uint* density,
-    uint index [[thread_position_in_grid]]
+    uint threadIndex [[thread_position_in_grid]]
 ) {
     const float enlargement = 1.1;
 
@@ -43,9 +58,11 @@ kernel void renderOrbit(
 
     float2 point = {0, 0.5};
 
-    uint64_t rand = params.randSeed ^ index;
+    uint64_t rand = params.randSeed ^ threadIndex;
     uint64_t randBits = 0;
     int randBitCount = 0;
+
+    int chunkSize = params.gridSize * params.gridSize / params.chunkCount;
 
     for (int n = 0; n < params.pointBatchPerThread; n++) {
         // Use all 64 bits of randomness from the previous random number before generating another
@@ -74,10 +91,10 @@ kernel void renderOrbit(
         // Increment appropriate count in density grid
         float2 pixel = (point * enlargement / 2 + 0.5) * sizef;
         if (pixel.x > 0 && pixel.x < sizef && pixel.y > 0 && pixel.y < sizef) {
-            density[
-                int(pixel.x) +
-                int(pixel.y) * params.gridSize
-            ]++;
+            int index = int(pixel.x) + int(pixel.y) * params.gridSize;
+            if (index / chunkSize == params.chunk) {
+                density[index]++;
+            }
         }
     }
 }
