@@ -56,11 +56,19 @@ kernel void renderOrbit(
         { -sin(params.rotation), cos(params.rotation) }
     };
 
-    float2 point = {0, 0.5};
-
     uint64_t rand = params.randSeed ^ threadIndex;
     uint64_t randBits = 0;
     int randBitCount = 0;
+
+    // Randomly place starting point to provide more even sampling across batches
+    // (and fewer artifacts for small point counts)
+    randBits = nextRand(rand);
+    float initialTheta = randBits % 100000 / 100000.0 * M_PI_F * 2;
+    float initialR = randBits / 100000 % 100000 / 200000.0 + 0.3;
+    float2 point = {
+        initialR * cos(initialTheta),
+        initialR * sin(initialTheta)
+    };
 
     int chunkSize = params.gridSize * params.gridSize / params.chunkCount;
 
