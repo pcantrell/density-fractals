@@ -29,8 +29,9 @@ actor MetalFractalRenderer {
     var colorScheme: FractalColorScheme
 
     // Rendering options
-    var sharpenRadius: Float = 0.01  // relative to size
-    var sharpenAmount: Float = 1.2
+    var earlyStopDensityPower: Double = 0.45  // Stop early if max density surpasses pow(maxPoints, earlyStopDensityPower)
+    var sharpenRadius: Float = 0.01  // gaussian sigma relative to grid size
+    var sharpenAmount: Float = 1.2   // 0 = no sharpening
 
     // Color parameter change over time
     private var
@@ -42,13 +43,9 @@ actor MetalFractalRenderer {
         hotHue  = Wave(Δphase: -pow(0.0053, 0.99)),
         hotSat  = Wave(Δphase:  pow(0.0042, 0.99), phase: -0.25, range: 0.2...0.7)
 
-    // Coloring depends on max density, which can vary both suddenly with small param changes
-    // and randomly across multiple renders. Smoothing max density prevents flickering.
-    private var maxDensitySmoothing = GaussianMedian(windowSize: 9, sigma: 1.6)
-
     // Preallocated metal resources
     private let metal: MTLContext
-    private var lastCompletedDensityBuf: (any MTLBuffer)?
+    private var lastRenderingResult: RenderingResult?
     private let renderOrbitPipelineState: any MTLComputePipelineState
     private let maxDensityPipelineState: any MTLComputePipelineState
     private let totalDensityPipelineState: any MTLComputePipelineState
@@ -99,7 +96,7 @@ actor MetalFractalRenderer {
 
     /// Renders the given number of fractal sample points to the density buffer.
     ///
-    func renderImage(samplePoints: Int) async -> any MTLBuffer {
+    func renderImage(samplePoints: Int) async -> RenderingResult {
         let timer = ContinuousClock.now
         defer {
             if logTiming {
@@ -109,14 +106,36 @@ actor MetalFractalRenderer {
 
         let densityBuf = try! metal.buffer(for: DensityCount.self, count: size * size, options: .storageModePrivate)
 
-        var pointsToRender = samplePoints
-        while pointsToRender > 0 {
-            pointsToRender -= renderOrbit(to: densityBuf, maxPoints: pointsToRender)
+        var estMaxDensity: DensityCount = 0
+        var estMaxDensityPerBatch: DensityCount? = nil
+        let earlyStopMaxDensity = DensityCount(ceil(
+            pow(Double(samplePoints), earlyStopDensityPower)))
+
+        var pointsRendered = 0
+        while pointsRendered < samplePoints && estMaxDensity < earlyStopMaxDensity {
+            // Render a batch of points
+            pointsRendered += renderOrbit(to: densityBuf, maxPoints: samplePoints - pointsRendered)
+
+            // Measure max density of first batch, and use this to estimate max density of subsequent batches.
+            // If points are highly concentrated, we can achieve same quality with fewer batches.
+            let estDensityAdded = estMaxDensityPerBatch ?? {
+                let maxDensityThisBatch = computeMaxDensity(in: densityBuf)
+                estMaxDensityPerBatch = maxDensityThisBatch
+                return maxDensityThisBatch
+            }()
+            estMaxDensity += estDensityAdded
+
             await Task.yield()  // In case anybody's showing updates during rendering
         }
 
-        lastCompletedDensityBuf = densityBuf
-        return densityBuf
+        let result = RenderingResult(
+            grideSize: size,
+            densityBuf: densityBuf,
+            pointsRendered: pointsRendered,
+            maxDensity: computeMaxDensity(in: densityBuf),
+            totalDensity: computeTotalDensity(of: densityBuf))
+        lastRenderingResult = result
+        return result
     }
 
     /// Render a batch of points, updating hits counts in `densityBuf` and returning count of
@@ -222,27 +241,19 @@ actor MetalFractalRenderer {
     // MARK: Drawing
 
     func drawLastCompleted(descriptor: MTLRenderPassDescriptor) async -> Bool {
-        guard let densityBuf = lastCompletedDensityBuf else {
+        guard let lastRenderingResult = lastRenderingResult else {
             return false
         }
-        await draw(densityBuf, descriptor: descriptor)
+        await draw(lastRenderingResult, descriptor: descriptor)
         return true
     }
 
-    @discardableResult
     func draw(
-        _ densityBuf: any MTLBuffer,
+        _ renderingResult: RenderingResult,
         descriptor: MTLRenderPassDescriptor,
         copyback: MTLTexture? = nil,  // to make pixels available to CPU
         awaitCompletion: Bool = false
-    ) async -> DensityStats {
-        let gridPixelCount = pow(Float(size), 2)
-        let maxDensity = computeMaxDensity(in: densityBuf)
-        let totalDensity = computeTotalDensity(of: densityBuf)
-        let totalDensityScaled = Float(totalDensity) / gridPixelCount * 42
-        maxDensitySmoothing.append(Double(maxDensity))
-        let maxDensitySmoothed = Float(ceil(maxDensitySmoothing.average()))
-
+    ) async {
         // Create intermediate texture for rendering before sharpening
         let descriptor = descriptor.copy() as! MTLRenderPassDescriptor
         let finalOutputTexture = descriptor.colorAttachments[0].texture!
@@ -262,10 +273,10 @@ actor MetalFractalRenderer {
             cmdBuffer.render(descriptor: descriptor) { cmdEncoder in
                 cmdEncoder.setRenderPipelineState(renderSquarePipelineState)
                 cmdEncoder.setVertexBuffer(squareVertexBuf, offset: 0, index: 0)
-                cmdEncoder.setFragmentBuffer(densityBuf, offset: 0, index: 0)
+                cmdEncoder.setFragmentBuffer(renderingResult.densityBuf, offset: 0, index: 0)
                 cmdEncoder.setFragmentValue(size, at: 1)
-                cmdEncoder.setFragmentValue(maxDensitySmoothed, at: 2)
-                cmdEncoder.setFragmentValue(totalDensityScaled, at: 3)
+                cmdEncoder.setFragmentValue(Float(renderingResult.maxDensity), at: 2)
+                cmdEncoder.setFragmentValue(Float(renderingResult.averageDensity * 42), at: 3)
                 cmdEncoder.setFragmentValue(colorScheme, at: 4)
                 cmdEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
             }
@@ -293,8 +304,6 @@ actor MetalFractalRenderer {
                 }
             }
         }
-
-        return DensityStats(maxDensity: maxDensity, totalDensity: totalDensity)
     }
 
     // MARK: Animation
@@ -309,6 +318,7 @@ actor MetalFractalRenderer {
         ΔrotationPerSecond: Double,
         ΔthetaOffsetPerSecond: Double
     ) async {
+        // Prevent system sleep while rendering
         var assertionID: IOPMAssertionID = 0
         IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventSystemSleep as CFString,
@@ -323,6 +333,11 @@ actor MetalFractalRenderer {
         print("Generating video at: \(encoder.output.path)")
 
         updateColorScheme(Δt: 0)  // initialize colors
+
+        // Coloring depends on max density, which can vary both suddenly with small param changes
+        // and randomly across multiple renders. Smoothing max density prevents flickering.
+        // Values here are maxDensity normalized by points rendered.
+        var maxDensitySmoothing = GaussianMedian(windowSize: 9, sigma: 1.6)
 
         var frameCount = 0
         var timeRendered: Double = -startTime
@@ -347,20 +362,26 @@ actor MetalFractalRenderer {
                     "(\(Int(timeRendered / duration * 100))%)",
                     "t=\(startTime + timeRendered))...")
 
-                let densityBuf = await renderImage(samplePoints: pointsPerFrame)
+                var result = await renderImage(samplePoints: pointsPerFrame)
+
+                maxDensitySmoothing.append(Double(result.maxDensity) / Double(result.pointsRendered))
+                let maxDensitySmoothed = DensityCount(ceil(
+                    maxDensitySmoothing.average() * Double(result.pointsRendered)))
+                if logStats {
+                    print("           totalDensity: \(result.totalDensity)")
+                    print("             maxDensity: \(result.maxDensity)")
+                    print("     maxDensitySmoothed: \(maxDensitySmoothed)")
+                    print("          concentration: \(result.concentration)")
+                }
+                result.maxDensity = maxDensitySmoothed
 
                 // Show on screen
                 Task {
                     await MainActor.run(body: self.frameRenderCallback)
                 }
 
-                let stats = await self.writeVideoFrame(from: densityBuf, to: encoder)
+                await self.writeVideoFrame(from: result, to: encoder)
 
-                if logStats {
-                    print("           totalDensity: \(stats.totalDensity)")
-                    print("             maxDensity: \(stats.maxDensity)")
-                    print("          concentration: \(stats.concentration)")
-                }
                 if logTiming {
                     print("Rendered frame in \(ContinuousClock.now - timer)")
                 }
@@ -390,7 +411,10 @@ actor MetalFractalRenderer {
         colorScheme.hot = simdColor(h: hotHue.next(speed: Δt), s: hotSat.next(speed: Δt), b: 0.9) * 2 - 1
     }
 
-    private func writeVideoFrame(from densityBuf: any MTLBuffer, to encoder: VideoEncoder) async -> DensityStats {
+    private func writeVideoFrame(
+        from renderingResult: RenderingResult,
+        to encoder: VideoEncoder
+    ) async {
         // Many portions adapted from https://github.com/warrenm/MetalOfflineRecording/blob/b4ebaddc37950fd5d835ed60530e7f1905e6d293/MetalOfflineRecording/Renderer.swift
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
@@ -407,9 +431,8 @@ actor MetalFractalRenderer {
         renderPassDescriptor.colorAttachments[0].storeAction = .store
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.5, 0.5, 0.5, 1)
 
-        let stats = await draw(densityBuf, descriptor: renderPassDescriptor, copyback: outputTexture, awaitCompletion: true)
+        await draw(renderingResult, descriptor: renderPassDescriptor, copyback: outputTexture, awaitCompletion: true)
         try! await encoder.writeFrame(forTexture: outputTexture)
-        return stats
     }
 
     func onFrameRendered(action: @escaping @MainActor @Sendable () -> Void) {
@@ -420,10 +443,19 @@ actor MetalFractalRenderer {
 typealias PointIndex = Int
 typealias DensityCount = UInt32
 
-struct DensityStats {
-    var maxDensity: DensityCount
-    var totalDensity: UInt64
+struct RenderingResult {
+    var grideSize: Int
+    var densityBuf: any MTLBuffer
 
+    var pointsRendered: Int
+    var maxDensity: DensityCount
+    var totalDensity: UInt64  // May differ from pointsRendered due to cropping, shader shortcuts
+
+    var averageDensity: Double {
+        Double(totalDensity) / pow(Double(grideSize), 2)
+    }
+
+    /// How tightly concentrated / spread out are the points within the density grid? (1 = all the same grid cell)
     var concentration: Double {
         Double(maxDensity) / Double(totalDensity)
     }

@@ -23,9 +23,6 @@ uint64_t nextRand(thread uint64_t& randState) {
     return z ^ (z >> 31);
 }
 
-constant int densityBatchCount = 3;
-constant int densityBatchCapacity = 10;
-
 void flushDensityBatch(
     device uint* density,
     thread/*group*/ int& densityBatchUsage,
