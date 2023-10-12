@@ -57,7 +57,7 @@ actor MetalFractalRenderer {
 
     // Internal tuning params
     private let maxPointBatchPerThread = 10_000  // Max orbit points for a single run of GPU orbit computation function
-    private let gpuThreadCount = 10_000          // Number of GPU threads specified in Metal dispatch call
+    private let maxGPUThreadCount = 10_000       // Max GPU threads specified in Metal dispatch call
     private let chunkCount = 9                   // Density buffer divided into this many subregions for cache coherence
 
     // Allows a single listener to receive notifcations whenever a new image is rendered
@@ -97,6 +97,8 @@ actor MetalFractalRenderer {
 
     // MARK: Fractal computation
 
+    /// Renders the given number of fractal sample points to the density buffer.
+    ///
     func renderImage(samplePoints: Int) async -> any MTLBuffer {
         let timer = ContinuousClock.now
         defer {
@@ -121,8 +123,14 @@ actor MetalFractalRenderer {
     /// actual points rendered.
     ///
     private func renderOrbit(to densityBuf: any MTLBuffer, maxPoints: Int = .max) -> Int {
-        let idealPointBatchSize = min(maxPointBatchPerThread * gpuThreadCount, maxPoints)
-        let pointBatchPerThread = (idealPointBatchSize + gpuThreadCount - 1) / gpuThreadCount
+        // Attempting to strike a balance between:
+        //  - saturating the GPU when maxPoints is high,
+        //  - dividing the work into smaller tractable batches when maxPoints is extremely large, and
+        //  - and letting each individual orbit proceed more than a few steps when maxPoints is low.
+
+        let idealPointBatchSize = min(maxPointBatchPerThread * maxGPUThreadCount, maxPoints)
+        let pointBatchPerThread = Int(ceil(sqrt(Double(idealPointBatchSize))))
+        let gpuThreadCount = max(1, (idealPointBatchSize + pointBatchPerThread - 1) / pointBatchPerThread)
         let pointBatchSize = pointBatchPerThread * gpuThreadCount
 
         let timer = ContinuousClock.now
