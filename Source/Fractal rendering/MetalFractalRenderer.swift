@@ -107,32 +107,40 @@ actor MetalFractalRenderer {
         let densityBuf = try! metal.buffer(for: DensityCount.self, count: size * size, options: .storageModePrivate)
 
         var estMaxDensity: DensityCount = 0
-        var estMaxDensityPerBatch: DensityCount? = nil
+        var firstBatchMaxDensity: DensityCount? = nil
+        var lastBatchMaxDensity: DensityCount? = nil
         let earlyStopMaxDensity = DensityCount(ceil(
             pow(Double(samplePoints), earlyStopDensityPower)))
 
         var pointsRendered = 0
-        while pointsRendered < samplePoints && estMaxDensity < earlyStopMaxDensity {
+        while pointsRendered < samplePoints {
+            lastBatchMaxDensity = nil
+
             // Render a batch of points
             pointsRendered += renderOrbit(to: densityBuf, maxPoints: samplePoints - pointsRendered)
 
+            await Task.yield()  // In case anybody's showing updates during rendering
+
             // Measure max density of first batch, and use this to estimate max density of subsequent batches.
-            // If points are highly concentrated, we can achieve same quality with fewer batches.
-            let estDensityAdded = estMaxDensityPerBatch ?? {
+            // If points are highly concentrated, we can stop early yet still achieve comparable quality.
+            let estDensityAdded = firstBatchMaxDensity ?? {
                 let maxDensityThisBatch = computeMaxDensity(in: densityBuf)
-                estMaxDensityPerBatch = maxDensityThisBatch
+                firstBatchMaxDensity = maxDensityThisBatch
+                lastBatchMaxDensity = maxDensityThisBatch  // In case we're about to stop, don't recompute below
                 return maxDensityThisBatch
             }()
-            estMaxDensity += estDensityAdded
+            estMaxDensity += estDensityAdded  // Could save this to avoid recalc for single-batch renderings, but low payoff
 
-            await Task.yield()  // In case anybody's showing updates during rendering
+            if estMaxDensity >= earlyStopMaxDensity {
+                break
+            }
         }
 
         let result = RenderingResult(
             grideSize: size,
             densityBuf: densityBuf,
             pointsRendered: pointsRendered,
-            maxDensity: computeMaxDensity(in: densityBuf),
+            maxDensity: lastBatchMaxDensity ?? computeMaxDensity(in: densityBuf),
             totalDensity: computeTotalDensity(of: densityBuf))
         lastRenderingResult = result
         return result
@@ -368,6 +376,7 @@ actor MetalFractalRenderer {
                 let maxDensitySmoothed = DensityCount(ceil(
                     maxDensitySmoothing.average() * Double(result.pointsRendered)))
                 if logStats {
+                    print("         pointsRendered: \(result.pointsRendered)")
                     print("           totalDensity: \(result.totalDensity)")
                     print("             maxDensity: \(result.maxDensity)")
                     print("     maxDensitySmoothed: \(maxDensitySmoothed)")
