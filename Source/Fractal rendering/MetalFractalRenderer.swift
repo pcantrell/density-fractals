@@ -450,7 +450,6 @@ actor MetalFractalRenderer {
 }
 
 typealias PointIndex = Int
-typealias DensityCount = UInt32
 
 struct RenderingResult {
     var grideSize: Int

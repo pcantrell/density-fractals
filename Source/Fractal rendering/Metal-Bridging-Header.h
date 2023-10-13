@@ -22,3 +22,4 @@ struct FractalColorScheme {
     simd_float3 cool, medium, hot;
 };
 
+typedef uint32_t DensityCount;

@@ -24,7 +24,7 @@ uint64_t nextRand(thread uint64_t& randState) {
 }
 
 void flushDensityBatch(
-    device uint* density,
+    device DensityCount* density,
     thread/*group*/ int& densityBatchUsage,
     thread/*group*/ int* densityBatch
 ) {
@@ -41,7 +41,7 @@ void flushDensityBatch(
 ///
 kernel void renderOrbit(
     constant FractalShaderParams& params,
-    device uint* density,
+    device DensityCount* density,
     uint threadIndex [[thread_position_in_grid]]
 ) {
     const float enlargement = 1.1;
@@ -128,14 +128,14 @@ ChunkRange computeChunkRange(
 ///
 kernel void maxDensity(
     constant int& gridSize,
-    device uint* density,
-    device uint* result,
+    device DensityCount* density,
+    device DensityCount* result,
     constant int& chunkSize,
     uint chunkIndex [[thread_position_in_grid]]
 ) {
     ChunkRange range = computeChunkRange(gridSize, chunkSize, chunkIndex);
 
-    uint max = 0;
+    DensityCount max = 0;
     for (int n = range.start; n < range.end; n++) {
         if (density[n] > max) {
             max = density[n];
@@ -149,7 +149,7 @@ kernel void maxDensity(
 ///
 kernel void totalDensity(
     constant int& gridSize,
-    device uint* density,
+    device DensityCount* density,
     device uint64_t* result,
     constant int& chunkSize,
     uint chunkIndex [[thread_position_in_grid]]
@@ -191,14 +191,14 @@ vertex RasterizerData densityVertex(
 ///
 fragment float4 densityFragment(
     RasterizerData in [[stage_in]],
-    device uint* density,
+    device DensityCount* density,
     constant int& densitySize,
     constant float& maxDensity,
     constant float& totalDensity,
     constant FractalColorScheme& colorScheme
 ) {
     int2 densityPosInt = int2(rint(in.densityPosition * vector_float2(densitySize - 1)));
-    uint densityValue = density[densityPosInt.x + densityPosInt.y * densitySize];
+    DensityCount densityValue = density[densityPosInt.x + densityPosInt.y * densitySize];
 
     float scale = max(maxDensity * 0.5, totalDensity);
     float maxWeight = 1 - pow(maxDensity / scale, 0.5);
