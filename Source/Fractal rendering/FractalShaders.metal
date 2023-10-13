@@ -23,18 +23,6 @@ uint64_t nextRand(thread uint64_t& randState) {
     return z ^ (z >> 31);
 }
 
-void flushDensityBatch(
-    device DensityCount* density,
-    thread/*group*/ int& densityBatchUsage,
-    thread/*group*/ int* densityBatch
-) {
-    for (int n = densityBatchUsage - 1; n >= 0; n--) {
-        density[densityBatch[n]]++;
-    }
-    densityBatchUsage = 0;
-}
-
-
 /// Repeatedly selects one of two transforms at random, applies that transform to a point in space,
 /// and updates the count in the `density` grid as the point moves. The fractal emerges from the
 /// distribution of those counts in the density grid.
