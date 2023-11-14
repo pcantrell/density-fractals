@@ -11,7 +11,7 @@ import Alloy
 import IOKit.pwr_mgt
 import MetalPerformanceShaders
 
-private let logTiming = true, logStats = false
+private let logTiming = true, logStats = true
 
 /// Manages the rendering of a density fractal on the GPU. This is a stateful actor: it hangs on to
 /// a current set of shape and color parameters, and a most recently rendered image. Rendering or
@@ -55,7 +55,7 @@ actor MetalFractalRenderer {
     // Internal tuning params
     private let maxPointBatchPerThread = 10_000  // Max orbit points for a single run of GPU orbit computation function
     private let maxGPUThreadCount = 10_000       // Max GPU threads specified in Metal dispatch call
-    private let chunkCount = 9                   // Density buffer divided into this many subregions for cache coherence
+    private let chunkCount = 1                   // Density buffer divided into this many subregions for cache coherence
 
     // Allows a single listener to receive notifcations whenever a new image is rendered
     private var frameRenderCallback: @MainActor @Sendable () -> Void = { }
@@ -106,10 +106,10 @@ actor MetalFractalRenderer {
 
         let densityBuf = try! metal.buffer(for: DensityCount.self, count: size * size, options: .storageModePrivate)
 
-        var estMaxDensity: DensityCount = 0
-        var firstBatchMaxDensity: DensityCount? = nil
-        var lastBatchMaxDensity: DensityCount? = nil
-        let earlyStopMaxDensity = DensityCount(ceil(
+        var estMaxDensity: UInt32 = 0
+        var firstBatchMaxDensity: UInt32? = nil
+        var lastBatchMaxDensity: UInt32? = nil
+        let earlyStopMaxDensity = UInt32(ceil(
             pow(Double(samplePoints), earlyStopDensityPower)))
 
         var pointsRendered = 0
@@ -202,7 +202,7 @@ actor MetalFractalRenderer {
         return pointBatchSize
     }
 
-    private func computeMaxDensity(in densityBuf: any MTLBuffer) -> DensityCount {
+    private func computeMaxDensity(in densityBuf: any MTLBuffer) -> UInt32 {
         computeChunked(densityBuf: densityBuf, pipelineState: maxDensityPipelineState)
             .max() ?? 0
     }
@@ -373,7 +373,7 @@ actor MetalFractalRenderer {
                 var result = await renderImage(samplePoints: pointsPerFrame)
 
                 maxDensitySmoothing.append(Double(result.maxDensity) / Double(result.pointsRendered))
-                let maxDensitySmoothed = DensityCount(ceil(
+                let maxDensitySmoothed = UInt32(ceil(
                     maxDensitySmoothing.average() * Double(result.pointsRendered)))
                 if logStats {
                     print("         pointsRendered: \(result.pointsRendered)")
@@ -456,7 +456,7 @@ struct RenderingResult {
     var densityBuf: any MTLBuffer
 
     var pointsRendered: Int
-    var maxDensity: DensityCount
+    var maxDensity: UInt32
     var totalDensity: UInt64  // May differ from pointsRendered due to cropping, shader shortcuts
 
     var averageDensity: Double {

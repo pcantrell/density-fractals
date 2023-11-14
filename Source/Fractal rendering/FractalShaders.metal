@@ -23,6 +23,8 @@ uint64_t nextRand(thread uint64_t& randState) {
     return z ^ (z >> 31);
 }
 
+constant int colorScale = 0x1000;
+
 /// Repeatedly selects one of two transforms at random, applies that transform to a point in space,
 /// and updates the count in the `density` grid as the point moves. The fractal emerges from the
 /// distribution of those counts in the density grid.
@@ -55,6 +57,8 @@ kernel void renderOrbit(
         initialR * sin(initialTheta)
     };
 
+    DensityCount pointColor = { colorScale / 2, colorScale / 2 };
+
     int chunkSize = params.gridSize * params.gridSize / params.chunkCount;
 
     for (int n = 0; n < params.pointBatchPerThread; n++) {
@@ -68,6 +72,7 @@ kernel void renderOrbit(
         if ((randBits & 1) == 0) {
             // Transform 0: rotation
             point *= rotation;
+            pointColor = pointColor * 2 / 3 + DensityCount(colorScale, 0);
         } else {
             // Transform 1: polar → rectangular coords
             float r = point.x * 0.5 + 0.5;
@@ -76,6 +81,7 @@ kernel void renderOrbit(
                 r * cos(theta),
                 r * sin(theta)
             };
+            pointColor = pointColor * 2 / 3 + DensityCount(0, colorScale);
         }
 
         randBits >>= 1;
@@ -86,7 +92,7 @@ kernel void renderOrbit(
         if (pixel.x > 0 && pixel.x < sizef && pixel.y > 0 && pixel.y < sizef) {
             int index = int(pixel.x) + int(pixel.y) * params.gridSize;
             if (index / chunkSize == params.chunk) {
-                density[index]++;
+                density[index] += pointColor;
             }
         }
     }
@@ -117,20 +123,19 @@ ChunkRange computeChunkRange(
 kernel void maxDensity(
     constant int& gridSize,
     device DensityCount* density,
-    device DensityCount* result,
+    device uint32_t* result,
     constant int& chunkSize,
     uint chunkIndex [[thread_position_in_grid]]
 ) {
     ChunkRange range = computeChunkRange(gridSize, chunkSize, chunkIndex);
 
-    DensityCount max = 0;
+    uint maxValue = 0;
     for (int n = range.start; n < range.end; n++) {
-        if (density[n] > max) {
-            max = density[n];
-        }
+        DensityCount val = density[n];
+        maxValue = max(maxValue, max(val.x, val.y));
     }
 
-    result[chunkIndex] = max;
+    result[chunkIndex] = maxValue / colorScale;
 }
 
 /// Computes the sum of all densities in a subchunk of the `density` grid.
@@ -146,10 +151,12 @@ kernel void totalDensity(
 
     uint64_t total = 0;
     for (int n = range.start; n < range.end; n++) {
-        total += density[n];
+        DensityCount value = density[n];
+        total += value.x;
+        total += value.y;
     }
 
-    result[chunkIndex] = total;
+    result[chunkIndex] = total / colorScale / 2;
 }
 
 // MARK: Image rendering & colorization
@@ -186,20 +193,29 @@ fragment float4 densityFragment(
     constant FractalColorScheme& colorScheme
 ) {
     int2 densityPosInt = int2(rint(in.densityPosition * vector_float2(densitySize - 1)));
-    DensityCount densityValue = density[densityPosInt.x + densityPosInt.y * densitySize];
+    float2 densityValue = float2(density[densityPosInt.x + densityPosInt.y * densitySize]);
 
-    float scale = max(maxDensity * 0.5, totalDensity);
+    float scale = max(maxDensity * 0.5, totalDensity) * colorScale;
     float maxWeight = 1 - pow(maxDensity / scale, 0.5);
-    float luminance = pow(densityValue / scale, 0.5) + pow(densityValue / maxDensity, 1.5) * maxWeight;
-    float hotLuminance = pow(densityValue / maxDensity, 1.5);
 
-    const float medCutoff = 0.12, hotCutoff = 0.3;
-
-    float4 result = 1;
-    result.rgb = colorScheme.cool   * pow(luminance, 0.7)
-               + colorScheme.medium * pow(max(0.0, (luminance - medCutoff) / (1 - medCutoff)), 1.1)
-               + colorScheme.hot    * pow(max(0.0, (hotLuminance - hotCutoff) / (1 - hotCutoff)), 2.5);
+    float4 result = 0;
+    result.rb = pow(densityValue / scale, 0.3) + pow(densityValue / maxDensity / colorScale, 1.5) * maxWeight;
+    result.g = pow((densityValue.x + densityValue.y) / maxDensity / colorScale, 2.5);
+    result.a = 1;
     return result;
+
+//    float scale = max(maxDensity * 0.5, totalDensity);
+//    float maxWeight = 1 - pow(maxDensity / scale, 0.5);
+//    float luminance = pow(densityValue / scale, 0.5) + pow(densityValue / maxDensity, 1.5) * maxWeight;
+//    float hotLuminance = pow(densityValue / maxDensity, 1.5);
+//
+//    const float medCutoff = 0.12, hotCutoff = 0.3;
+//
+//    float4 result = 1;
+//    result.rgb = colorScheme.cool   * pow(luminance, 0.7)
+//               + colorScheme.medium * pow(max(0.0, (luminance - medCutoff) / (1 - medCutoff)), 1.1)
+//               + colorScheme.hot    * pow(max(0.0, (hotLuminance - hotCutoff) / (1 - hotCutoff)), 2.5);
+//    return result;
 }
 
 // MARK: Unused color experiments

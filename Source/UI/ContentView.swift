@@ -25,9 +25,9 @@ struct ContentView: View {
         Task.detached(priority: .medium) {
             await renderer.renderAnimation(
                 startTime: 0,
-                duration: 240,
-                speed: 3,
-                apogeeSlowdown: 3,
+                duration: 60,
+                speed: 2,
+                apogeeSlowdown: 5,
                 frameRate: 30,
                 pointsPerFrame: 1_000_000_000,
                 ΔrotationPerSecond: 0.1 * golden,
