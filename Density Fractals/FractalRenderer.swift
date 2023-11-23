@@ -14,7 +14,10 @@ typealias Count = UInt32
 actor FractalRenderer {
     static let grid = CountGrid<Count>(size: 2048)
     static let pauls = (1...8).map { _ in
-        FractalRenderer(destination: grid, rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823)
+        FractalRenderer(destination: grid,
+            rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823  // Paul Cantrell
+//            rotation: 1.5247313396226190, thetaOffset: 3.0289141929447223  // Esther
+        )
     }
 
     let rotation: Double
@@ -31,7 +34,8 @@ actor FractalRenderer {
     }
 
     func orbit() async {
-        guard !running else { return }
+        guard !running else { print("--------> not running"); return }
+    print("--------> orbiting started")
         running = true
 
         var x: Double = 0.5
@@ -96,6 +100,7 @@ actor FractalRenderer {
 
 //            print(Double(pointBatchSize) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
         }
+print("--------> orbiting stopped")
     }
 
     func stop() {
