@@ -7,37 +7,29 @@
 
 import Foundation
 
-private let pointBatchSize = 10000000 //16000000
+private let pointBatchSize = 10000 //16000000
 
 typealias Count = UInt32
 
 actor FractalRenderer {
-    static let grid = CountGrid<Count>(size: 2048)
-    static let pauls = (1...8).map { _ in
-        FractalRenderer(destination: grid,
-            rotation: 1.6620565029879701, thetaOffset: 3.5144442745012823  // Paul Cantrell
-//            rotation: 1.5247313396226190, thetaOffset: 3.0289141929447223  // Esther
-        )
+    static let grid = CountGrid<Count>(size: 8192)
+    static let renderers = (1...8).map { _ in
+        FractalRenderer(destination: grid)
     }
-
-    let rotation: Double
-    let thetaOffset: Double
 
     let destination: CountGrid<Count>
 
     private var running = false
 
-    init(destination: CountGrid<Count>, rotation: Double, thetaOffset: Double) {
+    init(destination: CountGrid<Count>) {
         self.destination = destination
-        self.rotation = rotation
-        self.thetaOffset = thetaOffset
     }
 
-    func orbit() async {
-        guard !running else { print("--------> not running"); return }
-    print("--------> orbiting started")
-        running = true
-
+    func orbit(
+        rotation: Double,
+        thetaOffset: Double,
+        batches: Int
+    ) async {
         var x: Double = 0.5
         var y: Double = 0.0
 
@@ -46,7 +38,7 @@ actor FractalRenderer {
         let cosRot = cos(rotation),
             sinRot = sin(rotation)
 
-        while running {
+        for _ in 0..<batches {
             var rand = SplitMix64()
 
 //            let timer = ContinuousClock.now
@@ -100,7 +92,6 @@ actor FractalRenderer {
 
 //            print(Double(pointBatchSize) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
         }
-print("--------> orbiting stopped")
     }
 
     func stop() {

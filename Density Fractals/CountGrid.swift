@@ -26,6 +26,13 @@ private var timer = ContinuousClock.now
         buffer = .init(repeating: 0, count: width * height)
     }
 
+    func clear() {
+        maxCount = 0
+        for index in buffer.indices {
+            buffer[index] = 0
+        }
+    }
+
     func touch(_ x: Int, _ y: Int) {
         guard isInBounds(x, y) else {
             return
@@ -64,7 +71,7 @@ pointCount += count
         return x + y * width
     }
 
-    func renderImage() -> CGImage {
+    func renderImage() -> (image: CGImage, maxCount: CountType) {
         print("Rendering image...")
         print(Double(pointCount) / (ContinuousClock.now - timer).milliseconds, "orbits per ms")
         defer {
@@ -92,7 +99,7 @@ print("image quality: \(maxCount)")
         let rgbData = CFDataCreate(nil, pixelData, numBytes)!
         let provider = CGDataProvider(data: rgbData)!
 //        print("Creating CGImage...")
-        return CGImage(
+        let image = CGImage(
             width: width,
             height: height,
             bitsPerComponent: 8,
@@ -104,5 +111,6 @@ print("image quality: \(maxCount)")
             decode: nil,
             shouldInterpolate: true,
             intent: CGColorRenderingIntent.defaultIntent)!
+        return (image, maxCount)
     }
 }
